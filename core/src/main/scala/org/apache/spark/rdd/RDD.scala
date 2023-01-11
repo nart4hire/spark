@@ -2002,6 +2002,41 @@ abstract class RDD[T: ClassTag](
   override def toString: String = "%s%s[%d] at %s".format(
     Option(name).map(_ + " ").getOrElse(""), getClass.getSimpleName, id, getCreationSite)
 
+  def debugLineage: String = "%s -> RDD{ id: %d, type: %s }".format(
+    getCreationSite.takeWhile(_ != ' '), id, getClass.getSimpleName.split("RDD").head
+  )
+
+  def toLineage: String = {
+    def getSelf(rdd: RDD[_]): Seq[String] = {
+      rdd.debugLineage +: Seq.empty
+    }
+
+    def getChildren(rdd: RDD[_]): Seq[String] = {
+      val len = rdd.dependencies.length
+      len match {
+        case 0 => Seq.empty
+        case 1 =>
+          val d = rdd.dependencies.head
+          getLineage(d.rdd)
+        case _ =>
+          val frontDeps = rdd.dependencies.take(len - 1)
+          val frontDepStrings = frontDeps.flatMap(
+            d => getLineage(d.rdd)
+          )
+
+          val lastDep = rdd.dependencies.last
+          val lastDepStrings = getLineage(lastDep.rdd)
+
+          frontDepStrings ++ lastDepStrings
+      }
+    }
+
+    def getLineage(rdd: RDD[_]): Seq[String] = {
+      getSelf(rdd) ++ getChildren(rdd)
+    }
+    getLineage(this).reverse.mkString(" -> ")
+  }
+
   def toJavaRDD() : JavaRDD[T] = {
     new JavaRDD(this)(elementClassTag)
   }

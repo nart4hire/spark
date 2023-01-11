@@ -1287,6 +1287,9 @@ private[spark] class DAGScheduler(
     logInfo("Parents of final stage: " + finalStage.parents)
     logInfo("Missing parents: " + getMissingParentStages(finalStage))
 
+    // Print Lineage
+    logInfo("Final Lineage: " + finalRDD.toLineage)
+    
     val jobSubmissionTime = clock.getTimeMillis()
     jobIdToActiveJob(jobId) = job
     activeJobs += job
