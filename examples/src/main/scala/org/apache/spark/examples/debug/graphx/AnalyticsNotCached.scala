@@ -26,9 +26,10 @@ import org.apache.spark.graphx.PartitionStrategy._
 import org.apache.spark.graphx.lib._
 import org.apache.spark.storage.StorageLevel
 
-/** Driver program for running graph algorithms.
-  */
-object Analytics {
+/**
+ * Driver program for running graph algorithms.
+ */
+object AnalyticsNotCached {
 
   def main(args: Array[String]): Unit = {
     if (args.length < 2) {
@@ -102,7 +103,7 @@ object Analytics {
 
         val pr = (numIterOpt match {
           case Some(numIter) => PageRank.run(graph, numIter)
-          case None          => PageRank.runUntilConvergence(graph, tol)
+          case None => PageRank.runUntilConvergence(graph, tol)
         }).vertices
 
         println(s"GRAPHX: Total rank: ${pr.map(_._2).reduce(_ + _)}")

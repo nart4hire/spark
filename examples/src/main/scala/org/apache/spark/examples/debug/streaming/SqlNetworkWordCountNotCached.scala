@@ -20,7 +20,7 @@ package org.apache.spark.examples.debug.streaming
 
 import org.apache.spark.SparkConf
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.SparkSession
+// import org.apache.spark.sql.SparkSession
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.streaming.{Seconds, StreamingContext, Time}
 
@@ -37,7 +37,7 @@ import org.apache.spark.streaming.{Seconds, StreamingContext, Time}
  *    `$ bin/run-example org.apache.spark.examples.streaming.SqlNetworkWordCount localhost 9999`
  */
 
-object SqlNetworkWordCount {
+object SqlNetworkWordCountNotCached {
   def main(args: Array[String]): Unit = {
     if (args.length < 2) {
       System.err.println("Usage: NetworkWordCount <hostname> <port>")
@@ -47,7 +47,7 @@ object SqlNetworkWordCount {
     StreamingExamples.setStreamingLogLevels()
 
     // Create the context with a 2 second batch size
-    val sparkConf = new SparkConf().setAppName("SqlNetworkWordCount")
+    val sparkConf = new SparkConf().setAppName("SqlNetworkWordCountNotCached")
     val ssc = new StreamingContext(sparkConf, Seconds(2))
 
     // Create a socket stream on target ip:port and count the
@@ -83,22 +83,22 @@ object SqlNetworkWordCount {
 
 
 /** Case class for converting RDD to DataFrame */
-case class Record(word: String)
+// case class Record(word: String)
 
 
 /** Lazily instantiated singleton instance of SparkSession */
-object SparkSessionSingleton {
+// object SparkSessionSingleton {
 
-  @transient  private var instance: SparkSession = _
+//   @transient  private var instance: SparkSession = _
 
-  def getInstance(sparkConf: SparkConf): SparkSession = {
-    if (instance == null) {
-      instance = SparkSession
-        .builder
-        .config(sparkConf)
-        .getOrCreate()
-    }
-    instance
-  }
-}
+//   def getInstance(sparkConf: SparkConf): SparkSession = {
+//     if (instance == null) {
+//       instance = SparkSession
+//         .builder
+//         .config(sparkConf)
+//         .getOrCreate()
+//     }
+//     instance
+//   }
+// }
 // scalastyle:on println

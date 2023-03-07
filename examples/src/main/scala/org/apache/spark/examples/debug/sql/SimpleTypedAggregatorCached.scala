@@ -21,12 +21,12 @@ import org.apache.spark.sql.{Encoder, Encoders, SparkSession}
 import org.apache.spark.sql.expressions.Aggregator
 
 // scalastyle:off println
-object SimpleTypedAggregator {
+object SimpleTypedAggregatorCached {
 
   def main(args: Array[String]): Unit = {
     val spark = SparkSession.builder
       .master("local")
-      .appName("common typed aggregator implementations")
+      .appName("common typed aggregator implementations Cached")
       .getOrCreate()
 
     import spark.implicits._

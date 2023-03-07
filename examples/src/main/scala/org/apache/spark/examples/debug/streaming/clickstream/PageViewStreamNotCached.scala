@@ -34,7 +34,7 @@ import org.apache.spark.streaming.{Seconds, StreamingContext}
  *    org.apache.spark.examples.streaming.clickstream.PageViewStream errorRatePerZipCode localhost 44444`
  */
 // scalastyle:on
-object PageViewStream {
+object PageViewStreamNotCached {
   def main(args: Array[String]): Unit = {
     if (args.length != 3) {
       System.err.println("Usage: PageViewStream <metric> <host> <port>")
@@ -48,7 +48,7 @@ object PageViewStream {
     val port = args(2).toInt
 
     // Create the context
-    val ssc = new StreamingContext("local[2]", "PageViewStream", Seconds(1),
+    val ssc = new StreamingContext("local[2]", "PageViewStreamNotCached", Seconds(1),
       System.getenv("SPARK_HOME"), StreamingContext.jarOfClass(this.getClass).toSeq)
 
     // Create a ReceiverInputDStream on target host:port and convert each line to a PageView

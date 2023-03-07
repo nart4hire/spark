@@ -34,7 +34,7 @@ import org.apache.spark.streaming._
  *    `$ bin/run-example
  *      org.apache.spark.examples.streaming.StatefulNetworkWordCount localhost 9999`
  */
-object StatefulNetworkWordCount {
+object StatefulNetworkWordCountNotCached {
   def main(args: Array[String]): Unit = {
     if (args.length < 2) {
       System.err.println("Usage: StatefulNetworkWordCount <hostname> <port>")
@@ -43,7 +43,7 @@ object StatefulNetworkWordCount {
 
     StreamingExamples.setStreamingLogLevels()
 
-    val sparkConf = new SparkConf().setAppName("StatefulNetworkWordCount")
+    val sparkConf = new SparkConf().setAppName("StatefulNetworkWordCountNotCached")
     // Create the context with a 1 second batch size
     val ssc = new StreamingContext(sparkConf, Seconds(1))
     ssc.checkpoint(".")

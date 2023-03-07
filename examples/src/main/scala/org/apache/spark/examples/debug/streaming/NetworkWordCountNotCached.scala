@@ -33,7 +33,7 @@ import org.apache.spark.streaming.{Seconds, StreamingContext}
  * and then run the example
  *    `$ bin/run-example org.apache.spark.examples.streaming.NetworkWordCount localhost 9999`
  */
-object NetworkWordCount {
+object NetworkWordCountNotCached {
   def main(args: Array[String]): Unit = {
     if (args.length < 2) {
       System.err.println("Usage: NetworkWordCount <hostname> <port>")
@@ -43,7 +43,7 @@ object NetworkWordCount {
     StreamingExamples.setStreamingLogLevels()
 
     // Create the context with a 1 second batch size
-    val sparkConf = new SparkConf().setAppName("NetworkWordCount")
+    val sparkConf = new SparkConf().setAppName("NetworkWordCountNotCached")
     val ssc = new StreamingContext(sparkConf, Seconds(1))
 
     // Create a socket stream on target ip:port and count the

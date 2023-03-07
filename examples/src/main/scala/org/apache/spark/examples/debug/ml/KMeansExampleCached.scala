@@ -25,12 +25,13 @@ import org.apache.spark.ml.evaluation.ClusteringEvaluator
 // $example off$
 import org.apache.spark.sql.SparkSession
 
-/** An example demonstrating k-means clustering. Run with
-  * {{{
-  * bin/run-example ml.KMeansExample
-  * }}}
-  */
-object KMeansExample {
+/**
+ * An example demonstrating k-means clustering. Run with
+ * {{{
+ * bin/run-example ml.KMeansExample
+ * }}}
+ */
+object KMeansExampleCached {
 
   def main(args: Array[String]): Unit = {
     val spark = SparkSession.builder

@@ -38,7 +38,7 @@ import org.apache.spark.sql.SparkSession
  * bin/run-example graphx.TriangleCountingExample
  * }}}
  */
-object TriangleCountingExample {
+object TriangleCountingExampleNotCached {
   def main(args: Array[String]): Unit = {
     // Creates a SparkSession.
     val spark = SparkSession

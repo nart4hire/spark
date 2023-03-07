@@ -23,12 +23,12 @@ import org.apache.spark.SparkConf
 import org.apache.spark.rdd.RDD
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 
-object QueueStream {
+object QueueStreamCached {
 
   def main(args: Array[String]): Unit = {
 
     StreamingExamples.setStreamingLogLevels()
-    val sparkConf = new SparkConf().setAppName("QueueStream")
+    val sparkConf = new SparkConf().setAppName("QueueStreamCached")
     // Create the context
     val ssc = new StreamingContext(sparkConf, Seconds(1))
 

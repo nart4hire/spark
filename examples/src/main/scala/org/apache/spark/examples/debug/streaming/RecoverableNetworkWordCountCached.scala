@@ -29,8 +29,9 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.streaming.{Seconds, StreamingContext, Time}
 import org.apache.spark.util.{IntParam, LongAccumulator}
 
-/** Use this singleton to get or register a Broadcast variable.
-  */
+/**
+ * Use this singleton to get or register a Broadcast variable.
+ */
 object WordExcludeList {
 
   @volatile private var instance: Broadcast[Seq[String]] = null
@@ -48,8 +49,9 @@ object WordExcludeList {
   }
 }
 
-/** Use this singleton to get or register an Accumulator.
-  */
+/**
+ * Use this singleton to get or register an Accumulator.
+ */
 object DroppedWordsCounter {
 
   @volatile private var instance: LongAccumulator = null
@@ -66,38 +68,35 @@ object DroppedWordsCounter {
   }
 }
 
-/** Counts words in text encoded with UTF8 received from the network every
-  * second. This example also shows how to use lazily instantiated singleton
-  * instances for Accumulator and Broadcast so that they can be registered on
-  * driver failures.
-  *
-  * Usage: RecoverableNetworkWordCount <hostname> <port> <checkpoint-directory>
-  * <output-file> <hostname> and <port> describe the TCP server that Spark
-  * Streaming would connect to receive data. <checkpoint-directory> directory to
-  * HDFS-compatible file system which checkpoint data <output-file> file to
-  * which the word counts will be appended
-  *
-  * <checkpoint-directory> and <output-file> must be absolute paths
-  *
-  * To run this on your local machine, you need to first run a Netcat server
-  *
-  * `$ nc -lk 9999`
-  *
-  * and run the example as
-  *
-  * `$ ./bin/run-example
-  * org.apache.spark.examples.streaming.RecoverableNetworkWordCount \ localhost
-  * 9999 ~/checkpoint/ ~/out`
-  *
-  * If the directory ~/checkpoint/ does not exist (e.g. running for the first
-  * time), it will create a new StreamingContext (will print "Creating new
-  * context" to the console). Otherwise, if checkpoint data exists in
-  * ~/checkpoint/, then it will create StreamingContext from the checkpoint
-  * data.
-  *
-  * Refer to the online documentation for more details.
-  */
-object RecoverableNetworkWordCount {
+/**
+ * Counts words in text encoded with UTF8 received from the network every second. This example also
+ * shows how to use lazily instantiated singleton instances for Accumulator and Broadcast so that
+ * they can be registered on driver failures.
+ *
+ * Usage: RecoverableNetworkWordCount <hostname> <port> <checkpoint-directory> <output-file>
+ *   <hostname> and <port> describe the TCP server that Spark Streaming would connect to receive
+ *   data. <checkpoint-directory> directory to HDFS-compatible file system which checkpoint data
+ *   <output-file> file to which the word counts will be appended
+ *
+ * <checkpoint-directory> and <output-file> must be absolute paths
+ *
+ * To run this on your local machine, you need to first run a Netcat server
+ *
+ *      `$ nc -lk 9999`
+ *
+ * and run the example as
+ *
+ *      `$ ./bin/run-example org.apache.spark.examples.streaming.RecoverableNetworkWordCount \
+ *              localhost 9999 ~/checkpoint/ ~/out`
+ *
+ * If the directory ~/checkpoint/ does not exist (e.g. running for the first time), it will create
+ * a new StreamingContext (will print "Creating new context" to the console). Otherwise, if
+ * checkpoint data exists in ~/checkpoint/, then it will create StreamingContext from
+ * the checkpoint data.
+ *
+ * Refer to the online documentation for more details.
+ */
+object RecoverableNetworkWordCountCached {
 
   def createContext(
       ip: String,
@@ -111,7 +110,7 @@ object RecoverableNetworkWordCount {
     println("Creating new context")
     val outputFile = new File(outputPath)
     if (outputFile.exists()) outputFile.delete()
-    val sparkConf = new SparkConf().setAppName("RecoverableNetworkWordCount")
+    val sparkConf = new SparkConf().setAppName("RecoverableNetworkWordCountCached")
     // Create the context with a 1 second batch size
     val ssc = new StreamingContext(sparkConf, Seconds(1))
     ssc.checkpoint(checkpointDirectory)

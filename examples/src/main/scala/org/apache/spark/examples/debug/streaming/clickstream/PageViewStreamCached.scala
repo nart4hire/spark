@@ -33,7 +33,7 @@ import org.apache.spark.streaming.{Seconds, StreamingContext}
   * errorRatePerZipCode localhost 44444`
   */
 // scalastyle:on
-object PageViewStream {
+object PageViewStreamCached {
   def main(args: Array[String]): Unit = {
     if (args.length != 3) {
       System.err.println("Usage: PageViewStream <metric> <host> <port>")
@@ -51,7 +51,7 @@ object PageViewStream {
     // Create the context
     val ssc = new StreamingContext(
       "local[2]",
-      "PageViewStream",
+      "PageViewStreamCached",
       Seconds(1),
       System.getenv("SPARK_HOME"),
       StreamingContext.jarOfClass(this.getClass).toSeq
@@ -109,11 +109,11 @@ object PageViewStream {
       .cache()
 
     metric match {
-      case "pageCounts"          => pageCounts.print()
-      case "slidingPageCounts"   => slidingPageCounts.print()
+      case "pageCounts" => pageCounts.print()
+      case "slidingPageCounts" => slidingPageCounts.print()
       case "errorRatePerZipCode" => errorRatePerZipCode.print()
-      case "activeUserCount"     => activeUserCount.print()
-      case "popularUsersSeen"    =>
+      case "activeUserCount" => activeUserCount.print()
+      case "popularUsersSeen" =>
         // Look for users in our existing dataset and print it out if we have a match
         pageViews
           .map(view => (view.userID, 1))

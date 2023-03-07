@@ -47,7 +47,7 @@ import org.apache.spark.sql.SparkSession
  *      sql.streaming.StructuredKafkaWordCount host1:port1,host2:port2 \
  *      subscribe topic1,topic2`
  */
-object StructuredKafkaWordCount {
+object StructuredKafkaWordCountNotCached {
   def main(args: Array[String]): Unit = {
     if (args.length < 3) {
       System.err.println("Usage: StructuredKafkaWordCount <bootstrap-servers> " +
@@ -61,7 +61,7 @@ object StructuredKafkaWordCount {
 
     val spark = SparkSession
       .builder
-      .appName("StructuredKafkaWordCount")
+      .appName("StructuredKafkaWordCountNotCached")
       .getOrCreate()
 
     import spark.implicits._

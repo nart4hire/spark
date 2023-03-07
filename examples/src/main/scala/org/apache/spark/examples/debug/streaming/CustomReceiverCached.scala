@@ -27,15 +27,16 @@ import org.apache.spark.storage.StorageLevel
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.apache.spark.streaming.receiver.Receiver
 
-/** Custom Receiver that receives data over a socket. Received bytes are
-  * interpreted as text and \n delimited lines are considered as records. They
-  * are then counted and printed.
-  *
-  * To run this on your local machine, you need to first run a Netcat server `$
-  * nc -lk 9999` and then run the example `$ bin/run-example
-  * org.apache.spark.examples.streaming.CustomReceiver localhost 9999`
-  */
-object CustomReceiver {
+/**
+ * Custom Receiver that receives data over a socket. Received bytes are
+ * interpreted as text and \n delimited lines are considered as records. They
+ * are then counted and printed.
+ *
+ * To run this on your local machine, you need to first run a Netcat server `$
+ * nc -lk 9999` and then run the example `$ bin/run-example
+ * org.apache.spark.examples.streaming.CustomReceiver localhost 9999`
+ */
+object CustomReceiverCached {
   def main(args: Array[String]): Unit = {
     if (args.length < 2) {
       System.err.println("Usage: CustomReceiver <hostname> <port>")
@@ -45,7 +46,7 @@ object CustomReceiver {
     StreamingExamples.setStreamingLogLevels()
 
     // Create the context with a 1 second batch size
-    val sparkConf = new SparkConf().setAppName("CustomReceiver")
+    val sparkConf = new SparkConf().setAppName("CustomReceiverCached")
     val ssc = new StreamingContext(sparkConf, Seconds(1))
 
     // Create an input stream with the custom receiver on target ip:port and count the

@@ -25,14 +25,14 @@ import org.apache.spark.sql.SparkSession
 
 // One method for defining the schema of an RDD is to make a case class with the desired column
 // names and types.
-case class Record(key: Int, value: String)
+// case class Record(key: Int, value: String)
 
-object RDDRelation {
+object RDDRelationNotCached {
   def main(args: Array[String]): Unit = {
     // $example on:init_session$
     val spark = SparkSession
       .builder
-      .appName("Spark Examples")
+      .appName("Spark Examples NotCached")
       .config("spark.some.config.option", "some-value")
       .getOrCreate()
 

@@ -36,7 +36,7 @@ import org.apache.spark.util.IntParam
  *   <port> is the port on which RawTextSender is running in the worker nodes.
  *   <batchMillise> is the Spark Streaming batch duration in milliseconds.
  */
-object RawNetworkGrep {
+object RawNetworkGrepNotCached {
   def main(args: Array[String]): Unit = {
     if (args.length != 4) {
       System.err.println("Usage: RawNetworkGrep <numStreams> <host> <port> <batchMillis>")
@@ -46,7 +46,7 @@ object RawNetworkGrep {
     StreamingExamples.setStreamingLogLevels()
 
     val Array(IntParam(numStreams), host, IntParam(port), IntParam(batchMillis)) = args
-    val sparkConf = new SparkConf().setAppName("RawNetworkGrep")
+    val sparkConf = new SparkConf().setAppName("RawNetworkGrepNotCached")
     // Create the context
     val ssc = new StreamingContext(sparkConf, Duration(batchMillis))
 

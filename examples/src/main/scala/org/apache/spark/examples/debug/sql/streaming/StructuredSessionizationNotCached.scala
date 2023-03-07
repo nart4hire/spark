@@ -35,7 +35,7 @@ import org.apache.spark.sql.functions.{count, session_window}
  * `$ bin/run-example sql.streaming.StructuredSessionization
  * localhost 9999`
  */
-object StructuredSessionization {
+object StructuredSessionizationNotCached {
 
   def main(args: Array[String]): Unit = {
     if (args.length < 2) {
@@ -48,7 +48,7 @@ object StructuredSessionization {
 
     val spark = SparkSession
       .builder
-      .appName("StructuredSessionization")
+      .appName("StructuredSessionizationNotCached")
       .getOrCreate()
 
     import spark.implicits._

@@ -41,21 +41,22 @@ import org.apache.spark.mllib.evaluation.{MulticlassMetrics, RegressionMetrics}
 import org.apache.spark.mllib.util.MLUtils
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
-/** An example runner for decision trees. Run with
-  * {{{
-  * ./bin/run-example ml.DecisionTreeExample [options]
-  * }}}
-  * Note that Decision Trees can take a large amount of memory. If the
-  * run-example command above fails, try running via spark-submit and specifying
-  * the amount of memory as at least 1g. For local mode, run
-  * {{{
-  * ./bin/spark-submit --class org.apache.spark.examples.ml.DecisionTreeExample --driver-memory 1g
-  *   [examples JAR path] [options]
-  * }}}
-  * If you use it as a template to create your own app, please use
-  * `spark-submit` to submit your app.
-  */
-object DecisionTreeExample {
+/**
+ * An example runner for decision trees. Run with
+ * {{{
+ * ./bin/run-example ml.DecisionTreeExample [options]
+ * }}}
+ * Note that Decision Trees can take a large amount of memory. If the
+ * run-example command above fails, try running via spark-submit and specifying
+ * the amount of memory as at least 1g. For local mode, run
+ * {{{
+ * ./bin/spark-submit --class org.apache.spark.examples.ml.DecisionTreeExample --driver-memory 1g
+ *   [examples JAR path] [options]
+ * }}}
+ * If you use it as a template to create your own app, please use
+ * `spark-submit` to submit your app.
+ */
+object DecisionTreeExampleNotCached {
 
   case class Params(
       input: String = null,
@@ -116,7 +117,7 @@ object DecisionTreeExample {
           s"checkpoint directory where intermediate node Id caches will be stored, " +
             s"default: ${defaultParams.checkpointDir match {
                 case Some(strVal) => strVal
-                case None         => "None"
+                case None => "None"
               }}"
         )
         .action((x, c) => c.copy(checkpointDir = Some(x)))
@@ -152,7 +153,7 @@ object DecisionTreeExample {
 
     parser.parse(args, defaultParams) match {
       case Some(params) => run(params)
-      case _            => sys.exit(1)
+      case _ => sys.exit(1)
     }
   }
 
@@ -180,21 +181,22 @@ object DecisionTreeExample {
     }
   }
 
-  /** Load training and test data from files.
-    * @param input
-    *   Path to input dataset.
-    * @param dataFormat
-    *   "libsvm" or "dense"
-    * @param testInput
-    *   Path to test dataset.
-    * @param algo
-    *   Classification or Regression
-    * @param fracTest
-    *   Fraction of input data to hold out for testing. Ignored if testInput
-    *   given.
-    * @return
-    *   (training dataset, test dataset)
-    */
+  /**
+   * Load training and test data from files.
+   * @param input
+   *   Path to input dataset.
+   * @param dataFormat
+   *   "libsvm" or "dense"
+   * @param testInput
+   *   Path to test dataset.
+   * @param algo
+   *   Classification or Regression
+   * @param fracTest
+   *   Fraction of input data to hold out for testing. Ignored if testInput
+   *   given.
+   * @return
+   *   (training dataset, test dataset)
+   */
   private[ml] def loadDatasets(
       input: String,
       dataFormat: String,
@@ -235,7 +237,7 @@ object DecisionTreeExample {
 
   def run(params: Params): Unit = {
     val spark = SparkSession.builder
-      .appName(s"DecisionTreeExample with $params")
+      .appName(s"DecisionTreeExampleNotCached with $params")
       .getOrCreate()
 
     params.checkpointDir.foreach(spark.sparkContext.setCheckpointDir)
@@ -351,17 +353,18 @@ object DecisionTreeExample {
     spark.stop()
   }
 
-  /** Evaluate the given ClassificationModel on data. Print the results.
-    * @param model
-    *   Must fit ClassificationModel abstraction
-    * @param data
-    *   DataFrame with "prediction" and labelColName columns
-    * @param labelColName
-    *   Name of the labelCol parameter for the model
-    *
-    * TODO: Change model type to ClassificationModel once that API is public.
-    * SPARK-5995
-    */
+  /**
+   * Evaluate the given ClassificationModel on data. Print the results.
+   * @param model
+   *   Must fit ClassificationModel abstraction
+   * @param data
+   *   DataFrame with "prediction" and labelColName columns
+   * @param labelColName
+   *   Name of the labelCol parameter for the model
+   *
+   * TODO: Change model type to ClassificationModel once that API is public.
+   * SPARK-5995
+   */
   private[ml] def evaluateClassificationModel(
       model: Transformer,
       data: DataFrame,
@@ -384,17 +387,18 @@ object DecisionTreeExample {
     println(s"  Accuracy ($numClasses classes): $accuracy")
   }
 
-  /** Evaluate the given RegressionModel on data. Print the results.
-    * @param model
-    *   Must fit RegressionModel abstraction
-    * @param data
-    *   DataFrame with "prediction" and labelColName columns
-    * @param labelColName
-    *   Name of the labelCol parameter for the model
-    *
-    * TODO: Change model type to RegressionModel once that API is public.
-    * SPARK-5995
-    */
+  /**
+   * Evaluate the given RegressionModel on data. Print the results.
+   * @param model
+   *   Must fit RegressionModel abstraction
+   * @param data
+   *   DataFrame with "prediction" and labelColName columns
+   * @param labelColName
+   *   Name of the labelCol parameter for the model
+   *
+   * TODO: Change model type to RegressionModel once that API is public.
+   * SPARK-5995
+   */
   private[ml] def evaluateRegressionModel(
       model: Transformer,
       data: DataFrame,

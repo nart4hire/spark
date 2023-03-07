@@ -27,12 +27,12 @@ import org.apache.spark.sql.SparkSession
 // names and types.
 case class Record(key: Int, value: String)
 
-object RDDRelation {
+object RDDRelationCached {
   def main(args: Array[String]): Unit = {
     // $example on:init_session$
     val spark = SparkSession
       .builder
-      .appName("Spark Examples")
+      .appName("Spark Examples Cached")
       .config("spark.some.config.option", "some-value")
       .getOrCreate()
 
@@ -58,7 +58,8 @@ object RDDRelation {
     val rddFromSql = spark.sql("SELECT key, value FROM records WHERE key < 10")
 
     println("Result of RDD.map:")
-    rddFromSql.rdd.cache().map(row => s"Key: ${row(0)}, Value: ${row(1)}").cache().collect().foreach(println)
+    rddFromSql.rdd.map(row => s"Key: ${row(0)}, Value: ${row(1)}").cache().collect().foreach(
+      println)
 
     // Queries can also be written using a LINQ-like Scala DSL.
     df.where($"key" === 1).orderBy($"value".asc).select($"key").collect().foreach(println)

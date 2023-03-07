@@ -27,68 +27,69 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.streaming._
 import org.apache.spark.sql.types.{StringType, StructType, TimestampType}
 
-/** Sessionize events in UTF8 encoded, '\n' delimited text received from the
-  * network. Each line composes an event, and the line should match to the json
-  * format.
-  *
-  * The schema of the event is following:
-  *   - user_id: String
-  *   - event_type: String
-  *   - timestamp: Long
-  *
-  * The supported types are following:
-  *   - NEW_EVENT
-  *   - CLOSE_SESSION
-  *
-  * This example focuses to demonstrate the complex sessionization which uses
-  * two conditions on closing session; conditions are following:
-  *   - No further event is provided for the user ID within 5 seconds
-  *   - An event having CLOSE_SESSION as event_type is provided for the user ID
-  *
-  * Usage: StructuredComplexSessionization <hostname> <port> <hostname> and
-  * <port> describe the TCP server that Structured Streaming would connect to
-  * receive data.
-  *
-  * To run this on your local machine, you need to first run a Netcat server `$
-  * nc -lk 9999` and then run the example `$ bin/run-example
-  * sql.streaming.StructuredComplexSessionization localhost 9999`
-  *
-  * Here's a set of events for example:
-  *
-  * {"user_id": "user1", "event_type": "NEW_EVENT", "timestamp": 13} {"user_id":
-  * "user1", "event_type": "NEW_EVENT", "timestamp": 10} {"user_id": "user1",
-  * "event_type": "CLOSE_SESSION", "timestamp": 15} {"user_id": "user1",
-  * "event_type": "NEW_EVENT", "timestamp": 17} {"user_id": "user1",
-  * "event_type": "NEW_EVENT", "timestamp": 19} {"user_id": "user1",
-  * "event_type": "NEW_EVENT", "timestamp": 29}
-  *
-  * {"user_id": "user2", "event_type": "NEW_EVENT", "timestamp": 45}
-  *
-  * {"user_id": "user1", "event_type": "NEW_EVENT", "timestamp": 65}
-  *
-  * and results (the output can be split across micro-batches):
-  *
-  * |    id | durationMs | numEvents |
-  * |------:|:-----------|:----------|
-  * | user1 | 5000       | 3         |
-  * | user1 | 7000       | 2         |
-  * | user1 | 5000       | 1         |
-  * | user2 | 5000       | 1         |
-  * (The last event is not reflected into output due to watermark.)
-  *
-  * Note that there're three different sessions for 'user1'. The events in first
-  * two sessions are occurred within gap duration for nearest events, but they
-  * don't compose a single session due to the event of CLOSE_SESSION.
-  *
-  * Also note that the implementation is simplified one. This example doesn't
-  * address
-  *   - UPDATE MODE (the semantic is not clear for session window with event
-  *     time processing)
-  *   - partial merge (events in session which are earlier than watermark can be
-  *     aggregated)
-  *   - other possible optimizations
-  */
-object StructuredComplexSessionization {
+/**
+ * Sessionize events in UTF8 encoded, '\n' delimited text received from the
+ * network. Each line composes an event, and the line should match to the json
+ * format.
+ *
+ * The schema of the event is following:
+ *   - user_id: String
+ *   - event_type: String
+ *   - timestamp: Long
+ *
+ * The supported types are following:
+ *   - NEW_EVENT
+ *   - CLOSE_SESSION
+ *
+ * This example focuses to demonstrate the complex sessionization which uses
+ * two conditions on closing session; conditions are following:
+ *   - No further event is provided for the user ID within 5 seconds
+ *   - An event having CLOSE_SESSION as event_type is provided for the user ID
+ *
+ * Usage: StructuredComplexSessionization <hostname> <port> <hostname> and
+ * <port> describe the TCP server that Structured Streaming would connect to
+ * receive data.
+ *
+ * To run this on your local machine, you need to first run a Netcat server `$
+ * nc -lk 9999` and then run the example `$ bin/run-example
+ * sql.streaming.StructuredComplexSessionization localhost 9999`
+ *
+ * Here's a set of events for example:
+ *
+ * {"user_id": "user1", "event_type": "NEW_EVENT", "timestamp": 13} {"user_id":
+ * "user1", "event_type": "NEW_EVENT", "timestamp": 10} {"user_id": "user1",
+ * "event_type": "CLOSE_SESSION", "timestamp": 15} {"user_id": "user1",
+ * "event_type": "NEW_EVENT", "timestamp": 17} {"user_id": "user1",
+ * "event_type": "NEW_EVENT", "timestamp": 19} {"user_id": "user1",
+ * "event_type": "NEW_EVENT", "timestamp": 29}
+ *
+ * {"user_id": "user2", "event_type": "NEW_EVENT", "timestamp": 45}
+ *
+ * {"user_id": "user1", "event_type": "NEW_EVENT", "timestamp": 65}
+ *
+ * and results (the output can be split across micro-batches):
+ *
+ * |    id | durationMs | numEvents |
+ * |------:|:-----------|:----------|
+ * | user1 | 5000       | 3         |
+ * | user1 | 7000       | 2         |
+ * | user1 | 5000       | 1         |
+ * | user2 | 5000       | 1         |
+ * (The last event is not reflected into output due to watermark.)
+ *
+ * Note that there're three different sessions for 'user1'. The events in first
+ * two sessions are occurred within gap duration for nearest events, but they
+ * don't compose a single session due to the event of CLOSE_SESSION.
+ *
+ * Also note that the implementation is simplified one. This example doesn't
+ * address
+ *   - UPDATE MODE (the semantic is not clear for session window with event
+ *     time processing)
+ *   - partial merge (events in session which are earlier than watermark can be
+ *     aggregated)
+ *   - other possible optimizations
+ */
+object StructuredComplexSessionizationCached {
 
   def main(args: Array[String]): Unit = {
     if (args.length < 2) {
@@ -102,7 +103,7 @@ object StructuredComplexSessionization {
     val port = args(1).toInt
 
     val spark = SparkSession.builder
-      .appName("StructuredComplexSessionization")
+      .appName("StructuredComplexSessionizationCached")
       .getOrCreate()
 
     import spark.implicits._
@@ -310,16 +311,17 @@ case class SessionAcc(events: List[SessionEvent]) {
   }
 }
 
-/** User-defined data type representing the session information returned by
-  * flatMapGroupsWithState.
-  *
-  * @param id
-  *   Id of the user
-  * @param durationMs
-  *   Duration the session was active, that is, from first event to its expiry
-  * @param numEvents
-  *   Number of events received by the session while it was active
-  */
+/**
+ * User-defined data type representing the session information returned by
+ * flatMapGroupsWithState.
+ *
+ * @param id
+ *   Id of the user
+ * @param durationMs
+ *   Duration the session was active, that is, from first event to its expiry
+ * @param numEvents
+ *   Number of events received by the session while it was active
+ */
 case class Session(id: String, durationMs: Long, numEvents: Int)
 
 // scalastyle:on println

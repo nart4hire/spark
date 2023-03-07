@@ -24,18 +24,20 @@ import org.apache.spark.sql.SparkSession
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.streaming.{Seconds, StreamingContext, Time}
 
-/** Use DataFrames and SQL to count words in UTF8 encoded, '\n' delimited text
-  * received from the network every second.
-  *
-  * Usage: SqlNetworkWordCount <hostname> <port> <hostname> and <port> describe
-  * the TCP server that Spark Streaming would connect to receive data.
-  *
-  * To run this on your local machine, you need to first run a Netcat server `$
-  * nc -lk 9999` and then run the example `$ bin/run-example
-  * org.apache.spark.examples.streaming.SqlNetworkWordCount localhost 9999`
-  */
+/**
+ * Use DataFrames and SQL to count words in UTF8 encoded, '\n' delimited text received from the
+ * network every second.
+ *
+ * Usage: SqlNetworkWordCount <hostname> <port>
+ * <hostname> and <port> describe the TCP server that Spark Streaming would connect to receive data.
+ *
+ * To run this on your local machine, you need to first run a Netcat server
+ *    `$ nc -lk 9999`
+ * and then run the example
+ *    `$ bin/run-example org.apache.spark.examples.streaming.SqlNetworkWordCount localhost 9999`
+ */
 
-object SqlNetworkWordCount {
+object SqlNetworkWordCountCached {
   def main(args: Array[String]): Unit = {
     if (args.length < 2) {
       System.err.println("Usage: NetworkWordCount <hostname> <port>")
@@ -45,7 +47,7 @@ object SqlNetworkWordCount {
     StreamingExamples.setStreamingLogLevels()
 
     // Create the context with a 2 second batch size
-    val sparkConf = new SparkConf().setAppName("SqlNetworkWordCount")
+    val sparkConf = new SparkConf().setAppName("SqlNetworkWordCountCached")
     val ssc = new StreamingContext(sparkConf, Seconds(2))
 
     // Create a socket stream on target ip:port and count the

@@ -21,17 +21,18 @@ package org.apache.spark.examples.debug.sql.streaming
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions.{count, session_window}
 
-/** Counts words in UTF8 encoded, '\n' delimited text received from the network.
-  *
-  * Usage: StructuredSessionization <hostname> <port> <hostname> and <port>
-  * describe the TCP server that Structured Streaming would connect to receive
-  * data.
-  *
-  * To run this on your local machine, you need to first run a Netcat server `$
-  * nc -lk 9999` and then run the example `$ bin/run-example
-  * sql.streaming.StructuredSessionization localhost 9999`
-  */
-object StructuredSessionization {
+/**
+ * Counts words in UTF8 encoded, '\n' delimited text received from the network.
+ *
+ * Usage: StructuredSessionization <hostname> <port> <hostname> and <port>
+ * describe the TCP server that Structured Streaming would connect to receive
+ * data.
+ *
+ * To run this on your local machine, you need to first run a Netcat server `$
+ * nc -lk 9999` and then run the example `$ bin/run-example
+ * sql.streaming.StructuredSessionization localhost 9999`
+ */
+object StructuredSessionizationCached {
 
   def main(args: Array[String]): Unit = {
     if (args.length < 2) {
@@ -43,7 +44,7 @@ object StructuredSessionization {
     val port = args(1).toInt
 
     val spark = SparkSession.builder
-      .appName("StructuredSessionization")
+      .appName("StructuredSessionizationCached")
       .getOrCreate()
 
     import spark.implicits._

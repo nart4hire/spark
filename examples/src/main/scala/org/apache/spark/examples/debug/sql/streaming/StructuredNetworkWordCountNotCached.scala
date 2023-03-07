@@ -20,17 +20,18 @@ package org.apache.spark.examples.debug.sql.streaming
 
 import org.apache.spark.sql.SparkSession
 
-/** Counts words in UTF8 encoded, '\n' delimited text received from the network.
-  *
-  * Usage: StructuredNetworkWordCount <hostname> <port> <hostname> and <port>
-  * describe the TCP server that Structured Streaming would connect to receive
-  * data.
-  *
-  * To run this on your local machine, you need to first run a Netcat server `$
-  * nc -lk 9999` and then run the example `$ bin/run-example
-  * sql.streaming.StructuredNetworkWordCount localhost 9999`
-  */
-object StructuredNetworkWordCount {
+/**
+ * Counts words in UTF8 encoded, '\n' delimited text received from the network.
+ *
+ * Usage: StructuredNetworkWordCount <hostname> <port> <hostname> and <port>
+ * describe the TCP server that Structured Streaming would connect to receive
+ * data.
+ *
+ * To run this on your local machine, you need to first run a Netcat server `$
+ * nc -lk 9999` and then run the example `$ bin/run-example
+ * sql.streaming.StructuredNetworkWordCount localhost 9999`
+ */
+object StructuredNetworkWordCountNotCached {
   def main(args: Array[String]): Unit = {
     if (args.length < 2) {
       System.err.println("Usage: StructuredNetworkWordCount <hostname> <port>")
@@ -41,7 +42,7 @@ object StructuredNetworkWordCount {
     val port = args(1).toInt
 
     val spark = SparkSession.builder
-      .appName("StructuredNetworkWordCount")
+      .appName("StructuredNetworkWordCountNotCached")
       .getOrCreate()
 
     import spark.implicits._

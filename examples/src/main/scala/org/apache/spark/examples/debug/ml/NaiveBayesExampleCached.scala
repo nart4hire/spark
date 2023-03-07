@@ -24,10 +24,10 @@ import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
 // $example off$
 import org.apache.spark.sql.SparkSession
 
-object NaiveBayesExample {
+object NaiveBayesExampleCached {
   def main(args: Array[String]): Unit = {
     val spark = SparkSession.builder
-      .appName("NaiveBayesExample")
+      .appName("NaiveBayesExampleCached")
       .getOrCreate()
 
     // $example on$

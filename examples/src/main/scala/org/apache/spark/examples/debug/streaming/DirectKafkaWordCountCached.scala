@@ -36,7 +36,7 @@ import org.apache.spark.streaming.kafka010._
  *    $ bin/run-example streaming.DirectKafkaWordCount broker1-host:port,broker2-host:port \
  *    consumer-group topic1,topic2
  */
-object DirectKafkaWordCount {
+object DirectKafkaWordCountCached {
   def main(args: Array[String]): Unit = {
     if (args.length < 3) {
       System.err.println(s"""
@@ -54,7 +54,7 @@ object DirectKafkaWordCount {
     val Array(brokers, groupId, topics) = args
 
     // Create context with 2 second batch interval
-    val sparkConf = new SparkConf().setAppName("DirectKafkaWordCount")
+    val sparkConf = new SparkConf().setAppName("DirectKafkaWordCountCached")
     val ssc = new StreamingContext(sparkConf, Seconds(2))
 
     // Create direct kafka stream with brokers and topics

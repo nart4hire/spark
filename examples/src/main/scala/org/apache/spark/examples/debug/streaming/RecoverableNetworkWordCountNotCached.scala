@@ -23,50 +23,52 @@ import java.nio.charset.Charset
 
 import com.google.common.io.Files
 
-import org.apache.spark.{SparkConf, SparkContext}
-import org.apache.spark.broadcast.Broadcast
+// import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.SparkConf
+// import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import org.apache.spark.streaming.{Seconds, StreamingContext, Time}
-import org.apache.spark.util.{IntParam, LongAccumulator}
+// import org.apache.spark.util.{IntParam, LongAccumulator}
+import org.apache.spark.util.IntParam
 
 /**
  * Use this singleton to get or register a Broadcast variable.
  */
-object WordExcludeList {
+// object WordExcludeList {
 
-  @volatile private var instance: Broadcast[Seq[String]] = null
+//   @volatile private var instance: Broadcast[Seq[String]] = null
 
-  def getInstance(sc: SparkContext): Broadcast[Seq[String]] = {
-    if (instance == null) {
-      synchronized {
-        if (instance == null) {
-          val wordExcludeList = Seq("a", "b", "c")
-          instance = sc.broadcast(wordExcludeList)
-        }
-      }
-    }
-    instance
-  }
-}
+//   def getInstance(sc: SparkContext): Broadcast[Seq[String]] = {
+//     if (instance == null) {
+//       synchronized {
+//         if (instance == null) {
+//           val wordExcludeList = Seq("a", "b", "c")
+//           instance = sc.broadcast(wordExcludeList)
+//         }
+//       }
+//     }
+//     instance
+//   }
+// }
 
 /**
  * Use this singleton to get or register an Accumulator.
  */
-object DroppedWordsCounter {
+// object DroppedWordsCounter {
 
-  @volatile private var instance: LongAccumulator = null
+//   @volatile private var instance: LongAccumulator = null
 
-  def getInstance(sc: SparkContext): LongAccumulator = {
-    if (instance == null) {
-      synchronized {
-        if (instance == null) {
-          instance = sc.longAccumulator("DroppedWordsCounter")
-        }
-      }
-    }
-    instance
-  }
-}
+//   def getInstance(sc: SparkContext): LongAccumulator = {
+//     if (instance == null) {
+//       synchronized {
+//         if (instance == null) {
+//           instance = sc.longAccumulator("DroppedWordsCounter")
+//         }
+//       }
+//     }
+//     instance
+//   }
+// }
 
 /**
  * Counts words in text encoded with UTF8 received from the network every second. This example also
@@ -96,7 +98,7 @@ object DroppedWordsCounter {
  *
  * Refer to the online documentation for more details.
  */
-object RecoverableNetworkWordCount {
+object RecoverableNetworkWordCountNotCached {
 
   def createContext(ip: String, port: Int, outputPath: String, checkpointDirectory: String)
     : StreamingContext = {
@@ -106,7 +108,7 @@ object RecoverableNetworkWordCount {
     println("Creating new context")
     val outputFile = new File(outputPath)
     if (outputFile.exists()) outputFile.delete()
-    val sparkConf = new SparkConf().setAppName("RecoverableNetworkWordCount")
+    val sparkConf = new SparkConf().setAppName("RecoverableNetworkWordCountNotCached")
     // Create the context with a 1 second batch size
     val ssc = new StreamingContext(sparkConf, Seconds(1))
     ssc.checkpoint(checkpointDirectory)

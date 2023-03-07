@@ -30,7 +30,7 @@ import org.apache.spark.sql.SparkSession
  * bin/run-example graphx.PageRankExample
  * }}}
  */
-object PageRankExample {
+object PageRankExampleCached {
   def main(args: Array[String]): Unit = {
     // Creates a SparkSession.
     val spark = SparkSession

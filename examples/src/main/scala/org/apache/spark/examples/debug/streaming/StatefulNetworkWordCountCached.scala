@@ -21,16 +21,20 @@ package org.apache.spark.examples.debug.streaming
 import org.apache.spark.SparkConf
 import org.apache.spark.streaming._
 
-/** Counts words cumulatively in UTF8 encoded, '\n' delimited text received from
-  * the network every second starting with initial value of word count. Usage:
-  * StatefulNetworkWordCount <hostname> <port> <hostname> and <port> describe
-  * the TCP server that Spark Streaming would connect to receive data.
-  *
-  * To run this on your local machine, you need to first run a Netcat server `$
-  * nc -lk 9999` and then run the example `$ bin/run-example
-  * org.apache.spark.examples.streaming.StatefulNetworkWordCount localhost 9999`
-  */
-object StatefulNetworkWordCount {
+/**
+ * Counts words cumulatively in UTF8 encoded, '\n' delimited text received from the network every
+ * second starting with initial value of word count.
+ * Usage: StatefulNetworkWordCount <hostname> <port>
+ *   <hostname> and <port> describe the TCP server that Spark Streaming would connect to receive
+ *   data.
+ *
+ * To run this on your local machine, you need to first run a Netcat server
+ *    `$ nc -lk 9999`
+ * and then run the example
+ *    `$ bin/run-example
+ *      org.apache.spark.examples.streaming.StatefulNetworkWordCount localhost 9999`
+ */
+object StatefulNetworkWordCountCached {
   def main(args: Array[String]): Unit = {
     if (args.length < 2) {
       System.err.println("Usage: StatefulNetworkWordCount <hostname> <port>")
@@ -39,7 +43,7 @@ object StatefulNetworkWordCount {
 
     StreamingExamples.setStreamingLogLevels()
 
-    val sparkConf = new SparkConf().setAppName("StatefulNetworkWordCount")
+    val sparkConf = new SparkConf().setAppName("StatefulNetworkWordCountCached")
     // Create the context with a 1 second batch size
     val ssc = new StreamingContext(sparkConf, Seconds(1))
     ssc.checkpoint(".")

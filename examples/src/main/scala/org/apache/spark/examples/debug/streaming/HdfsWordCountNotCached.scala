@@ -32,7 +32,7 @@ import org.apache.spark.streaming.{Seconds, StreamingContext}
  *
  * Then create a text file in `localdir` and the words in the file will get counted.
  */
-object HdfsWordCount {
+object HdfsWordCountNotCached {
   def main(args: Array[String]): Unit = {
     if (args.length < 1) {
       System.err.println("Usage: HdfsWordCount <directory>")
@@ -40,7 +40,7 @@ object HdfsWordCount {
     }
 
     StreamingExamples.setStreamingLogLevels()
-    val sparkConf = new SparkConf().setAppName("HdfsWordCount")
+    val sparkConf = new SparkConf().setAppName("HdfsWordCountNotCached")
     // Create the context
     val ssc = new StreamingContext(sparkConf, Seconds(2))
 

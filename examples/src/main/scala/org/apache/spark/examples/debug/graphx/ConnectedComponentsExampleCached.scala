@@ -37,7 +37,7 @@ import org.apache.spark.sql.SparkSession
  * bin/run-example graphx.ConnectedComponentsExample
  * }}}
  */
-object ConnectedComponentsExample {
+object ConnectedComponentsExampleCached {
   def main(args: Array[String]): Unit = {
     // Creates a SparkSession.
     val spark = SparkSession

@@ -90,7 +90,7 @@ import org.apache.spark.sql.types.{StringType, StructType, TimestampType}
  * - partial merge (events in session which are earlier than watermark can be aggregated)
  * - other possible optimizations
  */
-object StructuredComplexSessionization {
+object StructuredComplexSessionizationNotCached {
 
   def main(args: Array[String]): Unit = {
     if (args.length < 2) {
@@ -103,7 +103,7 @@ object StructuredComplexSessionization {
 
     val spark = SparkSession
       .builder
-      .appName("StructuredComplexSessionization")
+      .appName("StructuredComplexSessionizationNotCached")
       .getOrCreate()
 
     import spark.implicits._
@@ -243,48 +243,48 @@ object StructuredComplexSessionization {
   }
 }
 
-object EventTypes extends Enumeration {
-  type EventTypes = Value
-  val NEW_EVENT, CLOSE_SESSION = Value
-}
+// object EventTypes extends Enumeration {
+//   type EventTypes = Value
+//   val NEW_EVENT, CLOSE_SESSION = Value
+// }
 
-case class SessionEvent(
-    userId: String,
-    eventType: EventTypes.Value,
-    startTimestamp: Timestamp,
-    endTimestamp: Timestamp)
+// case class SessionEvent(
+//     userId: String,
+//     eventType: EventTypes.Value,
+//     startTimestamp: Timestamp,
+//     endTimestamp: Timestamp)
 
-object SessionEvent {
-  def apply(
-      userId: String,
-      eventTypeStr: String,
-      timestamp: Timestamp,
-      gapDuration: Long): SessionEvent = {
-    val eventType = EventTypes.withName(eventTypeStr)
-    val endTime = if (eventType == EventTypes.CLOSE_SESSION)  {
-      timestamp
-    } else {
-      new Timestamp(timestamp.getTime + gapDuration)
-    }
-    SessionEvent(userId, eventType, timestamp, endTime)
-  }
-}
+// object SessionEvent {
+//   def apply(
+//       userId: String,
+//       eventTypeStr: String,
+//       timestamp: Timestamp,
+//       gapDuration: Long): SessionEvent = {
+//     val eventType = EventTypes.withName(eventTypeStr)
+//     val endTime = if (eventType == EventTypes.CLOSE_SESSION)  {
+//       timestamp
+//     } else {
+//       new Timestamp(timestamp.getTime + gapDuration)
+//     }
+//     SessionEvent(userId, eventType, timestamp, endTime)
+//   }
+// }
 
-case class SessionAcc(events: List[SessionEvent]) {
-  private val sortedEvents: List[SessionEvent] = events.sortBy(_.startTimestamp.getTime)
+// case class SessionAcc(events: List[SessionEvent]) {
+//   private val sortedEvents: List[SessionEvent] = events.sortBy(_.startTimestamp.getTime)
 
-  require(!sortedEvents.dropRight(1).exists(_.eventType == EventTypes.CLOSE_SESSION),
-    "CLOSE_SESSION event cannot be placed except the last event!")
+//   require(!sortedEvents.dropRight(1).exists(_.eventType == EventTypes.CLOSE_SESSION),
+//     "CLOSE_SESSION event cannot be placed except the last event!")
 
-  def eventsAsSorted: List[SessionEvent] = sortedEvents
-  def startTime: Timestamp = sortedEvents.head.startTimestamp
-  def endTime: Timestamp = sortedEvents.last.endTimestamp
+//   def eventsAsSorted: List[SessionEvent] = sortedEvents
+//   def startTime: Timestamp = sortedEvents.head.startTimestamp
+//   def endTime: Timestamp = sortedEvents.last.endTimestamp
 
-  override def toString: String = {
-    s"SessionAcc(events: $events / sorted: $sortedEvents / " +
-      s"start time: $startTime / endTime: $endTime)"
-  }
-}
+//   override def toString: String = {
+//     s"SessionAcc(events: $events / sorted: $sortedEvents / " +
+//       s"start time: $startTime / endTime: $endTime)"
+//   }
+// }
 
 /**
  * User-defined data type representing the session information returned by flatMapGroupsWithState.
@@ -293,9 +293,9 @@ case class SessionAcc(events: List[SessionEvent]) {
  * @param durationMs  Duration the session was active, that is, from first event to its expiry
  * @param numEvents   Number of events received by the session while it was active
  */
-case class Session(
-  id: String,
-  durationMs: Long,
-  numEvents: Int)
+// case class Session(
+//   id: String,
+//   durationMs: Long,
+//   numEvents: Int)
 
 // scalastyle:on println

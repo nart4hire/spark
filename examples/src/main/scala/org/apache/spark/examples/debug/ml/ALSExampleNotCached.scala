@@ -24,12 +24,13 @@ import org.apache.spark.ml.recommendation.ALS
 // $example off$
 import org.apache.spark.sql.SparkSession
 
-/** An example demonstrating ALS. Run with
-  * {{{
-  * bin/run-example ml.ALSExample
-  * }}}
-  */
-object ALSExample {
+/**
+ * An example demonstrating ALS. Run with
+ * {{{
+ * bin/run-example ml.ALSExample
+ * }}}
+ */
+object ALSExampleNotCached {
 
   // $example on$
   case class Rating(userId: Int, movieId: Int, rating: Float, timestamp: Long)
@@ -47,7 +48,7 @@ object ALSExample {
 
   def main(args: Array[String]): Unit = {
     val spark = SparkSession.builder
-      .appName("ALSExample")
+      .appName("ALSExampleNotCached")
       .getOrCreate()
     import spark.implicits._
 

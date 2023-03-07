@@ -28,7 +28,7 @@ import org.apache.spark.sql.types._
 // $example off:data_types$
 // $example off:programmatic_schema$
 
-object SparkSQLExample {
+object SparkSQLExampleNotCached {
 
   // $example on:create_ds$
   case class Person(name: String, age: Long)
@@ -38,7 +38,7 @@ object SparkSQLExample {
     // $example on:init_session$
     val spark = SparkSession
       .builder()
-      .appName("Spark SQL basic example")
+      .appName("Spark SQL basic example NotCached")
       .config("spark.some.config.option", "some-value")
       .getOrCreate()
 

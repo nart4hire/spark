@@ -29,7 +29,7 @@ import org.apache.spark.graphx.util.GraphGenerators
  * synthetic log-normal graphs.  The intent of this code is to enable users to
  * profile the GraphX system without access to large graph datasets.
  */
-object SynthBenchmark {
+object SynthBenchmarkCached {
 
   /**
    * To run this program use the following:
@@ -80,7 +80,7 @@ object SynthBenchmark {
     }
 
     val conf = new SparkConf()
-      .setAppName(s"GraphX Synth Benchmark (nverts = $numVertices, app = $app)")
+      .setAppName(s"GraphX Synth Benchmark Cached (nverts = $numVertices, app = $app)")
     GraphXUtils.registerKryoClasses(conf)
 
     val sc = new SparkContext(conf)

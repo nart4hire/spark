@@ -23,19 +23,20 @@ import org.apache.spark.storage.StorageLevel
 import org.apache.spark.streaming._
 import org.apache.spark.util.IntParam
 
-/** Receives text from multiple rawNetworkStreams and counts how many '\n'
-  * delimited lines have the word 'the' in them. This is useful for benchmarking
-  * purposes. This will only work with spark.streaming.util.RawTextSender
-  * running on all worker nodes and with Spark using Kryo serialization (set
-  * Java property "spark.serializer" to
-  * "org.apache.spark.serializer.KryoSerializer"). Usage: RawNetworkGrep
-  * <numStreams> <host> <port> <batchMillis> <numStream> is the number
-  * rawNetworkStreams, which should be same as number of work nodes in the
-  * cluster <host> is "localhost". <port> is the port on which RawTextSender is
-  * running in the worker nodes. <batchMillise> is the Spark Streaming batch
-  * duration in milliseconds.
-  */
-object RawNetworkGrep {
+/**
+ * Receives text from multiple rawNetworkStreams and counts how many '\n' delimited
+ * lines have the word 'the' in them. This is useful for benchmarking purposes. This
+ * will only work with spark.streaming.util.RawTextSender running on all worker nodes
+ * and with Spark using Kryo serialization (set Java property "spark.serializer" to
+ * "org.apache.spark.serializer.KryoSerializer").
+ * Usage: RawNetworkGrep <numStreams> <host> <port> <batchMillis>
+ *   <numStream> is the number rawNetworkStreams, which should be same as number
+ *               of work nodes in the cluster
+ *   <host> is "localhost".
+ *   <port> is the port on which RawTextSender is running in the worker nodes.
+ *   <batchMillise> is the Spark Streaming batch duration in milliseconds.
+ */
+object RawNetworkGrepCached {
   def main(args: Array[String]): Unit = {
     if (args.length != 4) {
       System.err.println(
@@ -52,7 +53,7 @@ object RawNetworkGrep {
       IntParam(port),
       IntParam(batchMillis)
     ) = args
-    val sparkConf = new SparkConf().setAppName("RawNetworkGrep")
+    val sparkConf = new SparkConf().setAppName("RawNetworkGrepCached")
     // Create the context
     val ssc = new StreamingContext(sparkConf, Duration(batchMillis))
 

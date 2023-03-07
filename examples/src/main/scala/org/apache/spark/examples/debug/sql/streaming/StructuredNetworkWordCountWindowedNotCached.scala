@@ -46,7 +46,7 @@ import org.apache.spark.sql.functions._
  *
  * One recommended <window duration>, <slide duration> pair is 10, 5
  */
-object StructuredNetworkWordCountWindowed {
+object StructuredNetworkWordCountWindowedNotCached {
 
   def main(args: Array[String]): Unit = {
     if (args.length < 3) {
@@ -67,7 +67,7 @@ object StructuredNetworkWordCountWindowed {
 
     val spark = SparkSession
       .builder
-      .appName("StructuredNetworkWordCountWindowed")
+      .appName("StructuredNetworkWordCountWindowedNotCached")
       .getOrCreate()
 
     import spark.implicits._

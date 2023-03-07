@@ -32,7 +32,7 @@ import org.apache.spark.sql.SparkSession
  * bin/run-example graphx.SSSPExample
  * }}}
  */
-object SSSPExample {
+object SSSPExampleCached {
   def main(args: Array[String]): Unit = {
     // Creates a SparkSession.
     val spark = SparkSession

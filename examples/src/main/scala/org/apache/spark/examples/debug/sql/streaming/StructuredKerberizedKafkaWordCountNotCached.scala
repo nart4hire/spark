@@ -86,7 +86,7 @@ import org.apache.spark.sql.SparkSession
  * using SASL_SSL in production.
  */
 
-object StructuredKerberizedKafkaWordCount {
+object StructuredKerberizedKafkaWordCountNotCached {
   def main(args: Array[String]): Unit = {
     if (args.length < 3) {
       System.err.println("Usage: StructuredKerberizedKafkaWordCount <bootstrap-servers> " +
@@ -100,7 +100,7 @@ object StructuredKerberizedKafkaWordCount {
 
     val spark = SparkSession
       .builder
-      .appName("StructuredKerberizedKafkaWordCount")
+      .appName("StructuredKerberizedKafkaWordCountNotCached")
       .getOrCreate()
 
     import spark.implicits._

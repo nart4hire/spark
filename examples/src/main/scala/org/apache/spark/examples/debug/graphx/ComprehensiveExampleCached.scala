@@ -34,7 +34,7 @@ import org.apache.spark.sql.SparkSession
  * bin/run-example graphx.ComprehensiveExample
  * }}}
  */
-object ComprehensiveExample {
+object ComprehensiveExampleCached {
 
   def main(args: Array[String]): Unit = {
     // Creates a SparkSession.

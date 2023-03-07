@@ -20,14 +20,14 @@ import java.util.Properties
 
 import org.apache.spark.sql.SparkSession
 
-object SQLDataSourceExample {
+object SQLDataSourceExampleCached {
 
   case class Person(name: String, age: Long)
 
   def main(args: Array[String]): Unit = {
     val spark = SparkSession
       .builder()
-      .appName("Spark SQL data sources example")
+      .appName("Spark SQL data sources example Cached")
       .config("spark.some.config.option", "some-value")
       .getOrCreate()
 

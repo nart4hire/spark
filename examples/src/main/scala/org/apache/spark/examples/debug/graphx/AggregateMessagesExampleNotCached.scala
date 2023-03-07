@@ -32,7 +32,7 @@ import org.apache.spark.sql.SparkSession
  * bin/run-example graphx.AggregateMessagesExample
  * }}}
  */
-object AggregateMessagesExample {
+object AggregateMessagesExampleNotCached {
 
   def main(args: Array[String]): Unit = {
     // Creates a SparkSession.
