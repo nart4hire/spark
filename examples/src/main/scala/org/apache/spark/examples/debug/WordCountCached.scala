@@ -27,7 +27,7 @@ object WordCountCached{
             .builder
             .appName("WordCountCached")
             .getOrCreate()
-        val input = "data/wordcount.txt"
+        val input = args(0)
         val data = spark.sparkContext.textFile(input)
         val words = data.flatMap(x => x.split(" "))
         words.cache()

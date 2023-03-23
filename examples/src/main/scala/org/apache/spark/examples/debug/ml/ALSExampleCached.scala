@@ -54,7 +54,7 @@ object ALSExampleCached {
 
     // $example on$
     val ratings = spark.read
-      .textFile("data/mllib/als/sample_movielens_ratings.txt")
+      .textFile(args(0)) // "data/mllib/als/sample_movielens_ratings.txt"
       .map(parseRating)
       .toDF()
       .cache()

@@ -34,7 +34,7 @@ object LogisticRegressionWithLBFGSExampleCached {
 
     // $example on$
     // Load training data in LIBSVM format.
-    val data = MLUtils.loadLibSVMFile(sc, "data/mllib/sample_libsvm_data.txt")
+    val data = MLUtils.loadLibSVMFile(sc, args(0)) // "data/mllib/sample_libsvm_data.txt"
 
     // Split data into training (60%) and test (40%).
     val splits = data.randomSplit(Array(0.6, 0.4), seed = 11L)

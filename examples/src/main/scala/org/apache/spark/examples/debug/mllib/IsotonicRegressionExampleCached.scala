@@ -32,7 +32,7 @@ object IsotonicRegressionExampleCached {
     val sc = new SparkContext(conf)
     // $example on$
     val data = MLUtils.loadLibSVMFile(sc,
-      "data/mllib/sample_isotonic_regression_libsvm_data.txt").cache()
+      args(0)).cache() // "data/mllib/sample_isotonic_regression_libsvm_data.txt"
 
     // Create label, feature, weight tuples from input data with weight set to default value 1.0.
     val parsedData = data.map { labeledPoint =>

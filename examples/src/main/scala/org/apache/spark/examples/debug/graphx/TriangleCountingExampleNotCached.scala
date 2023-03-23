@@ -49,12 +49,12 @@ object TriangleCountingExampleNotCached {
 
     // $example on$
     // Load the edges in canonical order and partition the graph for triangle count
-    val graph = GraphLoader.edgeListFile(sc, "data/graphx/followers.txt", true)
+    val graph = GraphLoader.edgeListFile(sc, args(0), true) // "data/graphx/followers.txt"
       .partitionBy(PartitionStrategy.RandomVertexCut)
     // Find the triangle count for each vertex
     val triCounts = graph.triangleCount().vertices
     // Join the triangle counts with the usernames
-    val users = sc.textFile("data/graphx/users.txt").map { line =>
+    val users = sc.textFile(args(1)).map { line => // "data/graphx/users.txt"
       val fields = line.split(",")
       (fields(0).toLong, fields(1))
     }

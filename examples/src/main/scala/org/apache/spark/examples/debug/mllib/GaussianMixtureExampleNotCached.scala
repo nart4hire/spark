@@ -33,7 +33,7 @@ object GaussianMixtureExampleNotCached {
 
     // $example on$
     // Load and parse the data
-    val data = sc.textFile("data/mllib/gmm_data.txt")
+    val data = sc.textFile(args(0)) // "data/mllib/gmm_data.txt"
     val parsedData = data.map(s => Vectors.dense(s.trim.split(' ').map(_.toDouble)))
 
     // Cluster the data into two classes using GaussianMixture

@@ -46,11 +46,12 @@ object ComprehensiveExampleNotCached {
 
     // $example on$
     // Load my user data and parse into tuples of user id and attribute list
-    val users = (sc.textFile("data/graphx/users.txt")
-      .map(line => line.split(",")).map( parts => (parts.head.toLong, parts.tail) ))
+    val users = (sc.textFile(args(0)) // "data/graphx/users.txt"
+      .map(line => line.split(","))
+      .map( parts => (parts.head.toLong, parts.tail) ))
 
     // Parse the edge data which is already in userId -> userId format
-    val followerGraph = GraphLoader.edgeListFile(sc, "data/graphx/followers.txt")
+    val followerGraph = GraphLoader.edgeListFile(sc, args(1)) // "data/graphx/followers.txt"
 
     // Attach the user attributes
     val graph = followerGraph.outerJoinVertices(users) {

@@ -21,13 +21,12 @@ package org.apache.spark.examples.debug.ml
 import scopt.OptionParser
 
 import org.apache.spark.examples.mllib.AbstractParams
-import org.apache.spark.ml.regression.LinearRegression
-import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.ml.Transformer
+import org.apache.spark.ml.linalg.Vector
+import org.apache.spark.ml.regression.LinearRegression
 import org.apache.spark.mllib.evaluation.RegressionMetrics
 import org.apache.spark.mllib.util.MLUtils
-import org.apache.spark.ml.linalg.Vector
-import org.apache.spark.storage.StorageLevel
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
 /**
  * An example runner for linear regression with elastic-net (mixing L1/L2) regularization.

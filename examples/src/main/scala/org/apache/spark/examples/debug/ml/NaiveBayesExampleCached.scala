@@ -35,7 +35,7 @@ object NaiveBayesExampleCached {
     val data =
       spark.read
         .format("libsvm")
-        .load("data/mllib/sample_libsvm_data.txt")
+        .load(args(0)) // "data/mllib/sample_libsvm_data.txt"
         .cache()
 
     // Split the data into training and test sets (30% held out for testing)

@@ -32,7 +32,8 @@ object RankingMetricsExampleCached {
       .getOrCreate()
     // $example on$
     // Read in the ratings data
-    val ratings = spark.read.textFile("data/mllib/sample_movielens_data.txt").rdd.map { line =>
+    // "data/mllib/sample_movielens_data.txt"
+    val ratings = spark.read.textFile(args(0)).rdd.map { line =>
       val fields = line.split("::")
       Rating(fields(0).toInt, fields(1).toInt, fields(2).toDouble - 2.5)
     }.cache()

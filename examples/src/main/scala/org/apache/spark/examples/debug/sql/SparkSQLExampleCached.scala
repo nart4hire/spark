@@ -44,17 +44,17 @@ object SparkSQLExampleCached {
 
     // $example off:init_session$
 
-    runBasicDataFrameExample(spark)
-    runDatasetCreationExample(spark)
-    runInferSchemaExample(spark)
-    runProgrammaticSchemaExample(spark)
+    runBasicDataFrameExample(spark, args(0))
+    runDatasetCreationExample(spark, args(1))
+    runInferSchemaExample(spark, args(2))
+    runProgrammaticSchemaExample(spark, args(3))
 
     spark.stop()
   }
 
-  private def runBasicDataFrameExample(spark: SparkSession): Unit = {
+  private def runBasicDataFrameExample(spark: SparkSession, args: String): Unit = {
     // $example on:create_df$
-    val df = spark.read.json("examples/src/main/resources/people.json").cache()
+    val df = spark.read.json(args).cache() // "examples/src/main/resources/people.json"
 
     // Displays the content of the DataFrame to stdout
     df.show()
@@ -156,7 +156,7 @@ object SparkSQLExampleCached {
     // $example off:global_temp_view$
   }
 
-  private def runDatasetCreationExample(spark: SparkSession): Unit = {
+  private def runDatasetCreationExample(spark: SparkSession, args: String): Unit = {
     import spark.implicits._
     // $example on:create_ds$
     // Encoders are created for case classes
@@ -173,7 +173,7 @@ object SparkSQLExampleCached {
     primitiveDS.map(_ + 1).collect() // Returns: Array(2, 3, 4)
 
     // DataFrames can be converted to a Dataset by providing a class. Mapping will be done by name
-    val path = "examples/src/main/resources/people.json"
+    val path = args // "examples/src/main/resources/people.json"
     val peopleDS = spark.read.json(path).as[Person].cache()
     peopleDS.show()
     // +----+-------+
@@ -186,14 +186,14 @@ object SparkSQLExampleCached {
     // $example off:create_ds$
   }
 
-  private def runInferSchemaExample(spark: SparkSession): Unit = {
+  private def runInferSchemaExample(spark: SparkSession, args: String): Unit = {
     // $example on:schema_inferring$
     // For implicit conversions from RDDs to DataFrames
     import spark.implicits._
 
     // Create an RDD of Person objects from a text file, convert it to a Dataframe
     val peopleDF = spark.sparkContext
-      .textFile("examples/src/main/resources/people.txt")
+      .textFile(args) // "examples/src/main/resources/people.txt"
       .map(_.split(","))
       .map(attributes => Person(attributes(0), attributes(1).trim.toInt))
       .toDF()
@@ -238,12 +238,12 @@ object SparkSQLExampleCached {
     // $example off:schema_inferring$
   }
 
-  private def runProgrammaticSchemaExample(spark: SparkSession): Unit = {
+  private def runProgrammaticSchemaExample(spark: SparkSession, args: String): Unit = {
     import spark.implicits._
     // $example on:programmatic_schema$
     // Create an RDD
     val peopleRDD = spark.sparkContext
-      .textFile("examples/src/main/resources/people.txt")
+      .textFile(args) // "examples/src/main/resources/people.txt"
       .cache()
 
     // The schema is encoded in a string

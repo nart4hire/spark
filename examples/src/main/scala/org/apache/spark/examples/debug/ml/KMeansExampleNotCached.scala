@@ -41,7 +41,7 @@ object KMeansExampleNotCached {
     // $example on$
     // Loads data.
     val dataset =
-      spark.read.format("libsvm").load("data/mllib/sample_kmeans_data.txt")
+      spark.read.format("libsvm").load(args(0)) // "data/mllib/sample_kmeans_data.txt"
 
     // Trains a k-means model.
     val kmeans = new KMeans().setK(2).setSeed(1L)

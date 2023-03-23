@@ -34,7 +34,8 @@ object MulticlassMetricsExampleCached {
 
     // $example on$
     // Load training data in LIBSVM format
-    val data = MLUtils.loadLibSVMFile(sc, "data/mllib/sample_multiclass_classification_data.txt")
+    // "data/mllib/sample_multiclass_classification_data.txt"
+    val data = MLUtils.loadLibSVMFile(sc, args(0))
 
     // Split data into training (60%) and test (40%)
     val Array(training, test) = data.randomSplit(Array(0.6, 0.4), seed = 11L)

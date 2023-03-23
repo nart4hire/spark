@@ -41,7 +41,7 @@ object BisectingKMeansExampleCached {
     // $example on$
     // Loads and parses data
     def parse(line: String): Vector = Vectors.dense(line.split(" ").map(_.toDouble))
-    val data = sc.textFile("data/mllib/kmeans_data.txt").map(parse).cache()
+    val data = sc.textFile(args(0)).map(parse).cache() // "data/mllib/kmeans_data.txt"
 
     // Clustering the data into 6 clusters by BisectingKMeans.
     val bkm = new BisectingKMeans().setK(6)

@@ -43,7 +43,7 @@ object KMeansExampleCached {
     val dataset =
       spark.read
         .format("libsvm")
-        .load("data/mllib/sample_kmeans_data.txt")
+        .load(args(0)) // "data/mllib/sample_kmeans_data.txt"
         .cache()
 
     // Trains a k-means model.

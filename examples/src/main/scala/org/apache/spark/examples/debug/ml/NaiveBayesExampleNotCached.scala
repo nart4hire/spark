@@ -33,7 +33,7 @@ object NaiveBayesExampleNotCached {
     // $example on$
     // Load the data stored in LIBSVM format as a DataFrame.
     val data =
-      spark.read.format("libsvm").load("data/mllib/sample_libsvm_data.txt")
+      spark.read.format("libsvm").load(args(0)) // "data/mllib/sample_libsvm_data.txt"
 
     // Split the data into training and test sets (30% held out for testing)
     val Array(trainingData, testData) =

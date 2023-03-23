@@ -36,7 +36,10 @@ object DecisionTreeClassificationExampleCached {
       .getOrCreate()
     // $example on$
     // Load the data stored in LIBSVM format as a DataFrame.
-    val data = spark.read.format("libsvm").load("data/mllib/sample_libsvm_data.txt").persist(StorageLevel.MEMORY_ONLY)
+    val data = spark.read
+      .format("libsvm")
+      .load(args(0)) // "data/mllib/sample_libsvm_data.txt"
+      .persist(StorageLevel.MEMORY_ONLY)
 
     // Index labels, adding metadata to the label column.
     // Fit on whole dataset to include all labels in index.

@@ -21,12 +21,12 @@ package org.apache.spark.examples.debug.ml
 import scopt.OptionParser
 
 import org.apache.spark.examples.mllib.AbstractParams
-import org.apache.spark.ml.regression.LinearRegression
-import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.ml.Transformer
+import org.apache.spark.ml.linalg.Vector
+import org.apache.spark.ml.regression.LinearRegression
 import org.apache.spark.mllib.evaluation.RegressionMetrics
 import org.apache.spark.mllib.util.MLUtils
-import org.apache.spark.ml.linalg.Vector
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.storage.StorageLevel
 
 /**
@@ -144,7 +144,8 @@ object LinearRegressionExampleCached {
       .getOrCreate()
 
     // Load training data
-    val origExamples: DataFrame = loadData(spark, input, dataFormat).persist(StorageLevel.MEMORY_ONLY)
+    val origExamples: DataFrame = loadData(spark, input, dataFormat)
+      .persist(StorageLevel.MEMORY_ONLY)
 
     // Load or create test set
     val dataframes: Array[DataFrame] = if (testInput != "") {

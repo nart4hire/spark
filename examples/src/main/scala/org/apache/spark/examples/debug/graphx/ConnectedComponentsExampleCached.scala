@@ -48,11 +48,11 @@ object ConnectedComponentsExampleCached {
 
     // $example on$
     // Load the graph as in the PageRank example
-    val graph = GraphLoader.edgeListFile(sc, "data/graphx/followers.txt")
+    val graph = GraphLoader.edgeListFile(sc, args(0)) // "data/graphx/followers.txt"
     // Find the connected components
     val cc = graph.connectedComponents().vertices.cache()
     // Join the connected components with the usernames
-    val users = sc.textFile("data/graphx/users.txt").map { line =>
+    val users = sc.textFile(args(1)).map { line => // "data/graphx/users.txt"
       val fields = line.split(",")
       (fields(0).toLong, fields(1))
     }.cache()
