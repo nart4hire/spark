@@ -26,6 +26,7 @@ import org.apache.spark.sql.SparkSession
 // $example on:data_types$
 import org.apache.spark.sql.types._
 // $example off:data_types$
+import org.apache.spark.storage.StorageLevel
 // $example off:programmatic_schema$
 
 object SparkSQLExampleCached {
@@ -54,7 +55,8 @@ object SparkSQLExampleCached {
 
   private def runBasicDataFrameExample(spark: SparkSession, args: String): Unit = {
     // $example on:create_df$
-    val df = spark.read.json(args).cache() // "examples/src/main/resources/people.json"
+    // "examples/src/main/resources/people.json"
+    val df = spark.read.json(args).persist(StorageLevel.MEMORY_ONLY)
 
     // Displays the content of the DataFrame to stdout
     df.show()
@@ -160,7 +162,7 @@ object SparkSQLExampleCached {
     import spark.implicits._
     // $example on:create_ds$
     // Encoders are created for case classes
-    val caseClassDS = Seq(Person("Andy", 32)).toDS().cache()
+    val caseClassDS = Seq(Person("Andy", 32)).toDS().persist(StorageLevel.MEMORY_ONLY)
     caseClassDS.show()
     // +----+---+
     // |name|age|
@@ -169,12 +171,12 @@ object SparkSQLExampleCached {
     // +----+---+
 
     // Encoders for most common types are automatically provided by importing spark.implicits._
-    val primitiveDS = Seq(1, 2, 3).toDS().cache()
+    val primitiveDS = Seq(1, 2, 3).toDS().persist(StorageLevel.MEMORY_ONLY)
     primitiveDS.map(_ + 1).collect() // Returns: Array(2, 3, 4)
 
     // DataFrames can be converted to a Dataset by providing a class. Mapping will be done by name
     val path = args // "examples/src/main/resources/people.json"
-    val peopleDS = spark.read.json(path).as[Person].cache()
+    val peopleDS = spark.read.json(path).as[Person].persist(StorageLevel.MEMORY_ONLY)
     peopleDS.show()
     // +----+-------+
     // | age|   name|
@@ -197,14 +199,14 @@ object SparkSQLExampleCached {
       .map(_.split(","))
       .map(attributes => Person(attributes(0), attributes(1).trim.toInt))
       .toDF()
-      .cache()
+      .persist(StorageLevel.MEMORY_ONLY)
     // Register the DataFrame as a temporary view
     peopleDF.createOrReplaceTempView("people")
 
     // SQL statements can be run by using the sql methods provided by Spark
     val teenagersDF = spark
       .sql("SELECT name, age FROM people WHERE age BETWEEN 13 AND 19")
-      .cache()
+      .persist(StorageLevel.MEMORY_ONLY)
 
     // The columns of a row in the result can be accessed by field index
     teenagersDF.map(teenager => "Name: " + teenager(0)).show()
@@ -262,13 +264,13 @@ object SparkSQLExampleCached {
       .cache()
 
     // Apply the schema to the RDD
-    val peopleDF = spark.createDataFrame(rowRDD, schema).cache()
+    val peopleDF = spark.createDataFrame(rowRDD, schema).persist(StorageLevel.MEMORY_ONLY)
 
     // Creates a temporary view using the DataFrame
     peopleDF.createOrReplaceTempView("people")
 
     // SQL can be run over a temporary view created using DataFrames
-    val results = spark.sql("SELECT name FROM people").cache()
+    val results = spark.sql("SELECT name FROM people").persist(StorageLevel.MEMORY_ONLY)
 
     // The results of SQL queries are DataFrames and support all the normal RDD operations
     // The columns of a row in the result can be accessed by field index or by field name

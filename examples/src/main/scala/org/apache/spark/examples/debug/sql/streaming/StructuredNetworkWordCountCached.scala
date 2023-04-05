@@ -19,6 +19,7 @@
 package org.apache.spark.examples.debug.sql.streaming
 
 import org.apache.spark.sql.SparkSession
+import org.apache.spark.storage.StorageLevel
 
 /**
  * Counts words in UTF8 encoded, '\n' delimited text received from the network.
@@ -53,13 +54,13 @@ object StructuredNetworkWordCountCached {
       .option("host", host)
       .option("port", port)
       .load()
-      .cache()
+      .persist(StorageLevel.MEMORY_ONLY)
 
     // Split the lines into words
-    val words = lines.as[String].flatMap(_.split(" ")).cache()
+    val words = lines.as[String].flatMap(_.split(" ")).persist(StorageLevel.MEMORY_ONLY)
 
     // Generate running word count
-    val wordCounts = words.groupBy("value").count().cache()
+    val wordCounts = words.groupBy("value").count().persist(StorageLevel.MEMORY_ONLY)
 
     // Start running the query that prints the running counts to the console
     val query = wordCounts.writeStream

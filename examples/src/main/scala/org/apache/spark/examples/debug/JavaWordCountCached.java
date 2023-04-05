@@ -39,7 +39,7 @@ public final class JavaWordCountCached {
 
     SparkSession spark = SparkSession
       .builder()
-      .appName("JavaWordCount")
+      .appName("JavaWordCountCached")
       .getOrCreate();
 
     JavaRDD<String> lines = spark.read().textFile(args[0]).javaRDD().cache();
@@ -50,10 +50,11 @@ public final class JavaWordCountCached {
 
     JavaPairRDD<String, Integer> counts = ones.reduceByKey((i1, i2) -> i1 + i2).cache();
 
-    List<Tuple2<String, Integer>> output = counts.collect();
-    for (Tuple2<?,?> tuple : output) {
-      System.out.println(tuple._1() + ": " + tuple._2());
-    }
+    counts.count();
+    // List<Tuple2<String, Integer>> output = counts.collect();
+    // for (Tuple2<?,?> tuple : output) {
+    //   System.out.println(tuple._1() + ": " + tuple._2());
+    // }
     spark.stop();
   }
 }

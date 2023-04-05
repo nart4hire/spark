@@ -37,10 +37,11 @@ object WordCountCached{
         result.cache()
         println(s"Result Count = ${result.count()}")
         words.unpersist()
-        val output = result.collect()
-        output.foreach{
-            case(key, value) => println(s"$key : $value")
-        }
+        result.count()
+        // val output = result.collect()
+        // output.foreach{
+        //     case(key, value) => println(s"$key : $value")
+        // }
         println(s"Result Take 10 = ${result.take(10)}")
         result.unpersist()
         spark.stop()

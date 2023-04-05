@@ -19,6 +19,7 @@ package org.apache.spark.examples.debug.sql
 import java.util.Properties
 
 import org.apache.spark.sql.SparkSession
+import org.apache.spark.storage.StorageLevel
 
 object SQLDataSourceExampleCached {
 
@@ -53,7 +54,7 @@ object SQLDataSourceExampleCached {
         "examples/src/main/resources/dir1/",
         "examples/src/main/resources/dir1/dir2/"
       )
-      .cache()
+      .persist(StorageLevel.MEMORY_ONLY)
     testCorruptDF0.show()
     // +-------------+
     // |         file|
@@ -70,7 +71,7 @@ object SQLDataSourceExampleCached {
         "examples/src/main/resources/dir1/",
         "examples/src/main/resources/dir1/dir2/"
       )
-      .cache()
+      .persist(StorageLevel.MEMORY_ONLY)
     testCorruptDF1.show()
     // +-------------+
     // |         file|
@@ -84,7 +85,7 @@ object SQLDataSourceExampleCached {
       .format("parquet")
       .option("recursiveFileLookup", "true")
       .load("examples/src/main/resources/dir1")
-      .cache()
+      .persist(StorageLevel.MEMORY_ONLY)
     recursiveLoadedDF.show()
     // +-------------+
     // |         file|
@@ -99,7 +100,7 @@ object SQLDataSourceExampleCached {
       .format("parquet")
       .option("pathGlobFilter", "*.parquet") // json file should be filtered out
       .load("examples/src/main/resources/dir1")
-      .cache()
+      .persist(StorageLevel.MEMORY_ONLY)
     testGlobFilterDF.show()
     // +-------------+
     // |         file|
@@ -113,7 +114,7 @@ object SQLDataSourceExampleCached {
       // Files modified before 07/01/2020 at 05:30 are allowed
       .option("modifiedBefore", "2020-07-01T05:30:00")
       .load("examples/src/main/resources/dir1")
-      .cache();
+      .persist(StorageLevel.MEMORY_ONLY);
     beforeFilterDF.show();
     // +-------------+
     // |         file|
@@ -125,7 +126,7 @@ object SQLDataSourceExampleCached {
       // Files modified after 06/01/2020 at 05:30 are allowed
       .option("modifiedAfter", "2020-06-01T05:30:00")
       .load("examples/src/main/resources/dir1")
-      .cache();
+      .persist(StorageLevel.MEMORY_ONLY);
     afterFilterDF.show();
     // +-------------+
     // |         file|
@@ -137,7 +138,8 @@ object SQLDataSourceExampleCached {
   private def runBasicDataSourceExample(spark: SparkSession): Unit = {
     // $example on:generic_load_save_functions$
     val usersDF =
-      spark.read.load("examples/src/main/resources/users.parquet").cache()
+      spark.read.load("examples/src/main/resources/users.parquet")
+      .persist(StorageLevel.MEMORY_ONLY)
     usersDF
       .select("name", "favorite_color")
       .write
@@ -147,7 +149,7 @@ object SQLDataSourceExampleCached {
     val peopleDF = spark.read
       .format("json")
       .load("examples/src/main/resources/people.json")
-      .cache()
+      .persist(StorageLevel.MEMORY_ONLY)
     peopleDF
       .select("name", "age")
       .write
@@ -161,7 +163,7 @@ object SQLDataSourceExampleCached {
       .option("inferSchema", "true")
       .option("header", "true")
       .load("examples/src/main/resources/people.csv")
-      .cache()
+      .persist(StorageLevel.MEMORY_ONLY)
     // $example off:manual_load_options_csv$
     // $example on:manual_save_options_orc$
     usersDF.write
@@ -184,7 +186,7 @@ object SQLDataSourceExampleCached {
     // $example on:direct_sql$
     val sqlDF = spark
       .sql("SELECT * FROM parquet.`examples/src/main/resources/users.parquet`")
-      .cache()
+      .persist(StorageLevel.MEMORY_ONLY)
     // $example off:direct_sql$
     // $example on:write_sorting_and_bucketing$
     peopleDF.write
@@ -215,7 +217,7 @@ object SQLDataSourceExampleCached {
     import spark.implicits._
 
     val peopleDF =
-      spark.read.json("examples/src/main/resources/people.json").cache()
+      spark.read.json("examples/src/main/resources/people.json").persist(StorageLevel.MEMORY_ONLY)
 
     // DataFrames can be saved as Parquet files, maintaining the schema information
     peopleDF.write.parquet("people.parquet")
@@ -223,13 +225,13 @@ object SQLDataSourceExampleCached {
     // Read in the parquet file created above
     // Parquet files are self-describing so the schema is preserved
     // The result of loading a Parquet file is also a DataFrame
-    val parquetFileDF = spark.read.parquet("people.parquet").cache()
+    val parquetFileDF = spark.read.parquet("people.parquet").persist(StorageLevel.MEMORY_ONLY)
 
     // Parquet files can also be used to create a temporary view and then used in SQL statements
     parquetFileDF.createOrReplaceTempView("parquetFile")
     val namesDF = spark
       .sql("SELECT name FROM parquetFile WHERE age BETWEEN 13 AND 19")
-      .cache()
+      .persist(StorageLevel.MEMORY_ONLY)
     namesDF.map(attributes => "Name: " + attributes(0)).show()
     // +------------+
     // |       value|
@@ -249,7 +251,7 @@ object SQLDataSourceExampleCached {
       .makeRDD(1 to 5)
       .map(i => (i, i * i))
       .toDF("value", "square")
-      .cache()
+      .persist(StorageLevel.MEMORY_ONLY)
     squaresDF.write.parquet("data/test_table/key=1")
 
     // Create another DataFrame in a new partition directory,
@@ -258,14 +260,14 @@ object SQLDataSourceExampleCached {
       .makeRDD(6 to 10)
       .map(i => (i, i * i * i))
       .toDF("value", "cube")
-      .cache()
+      .persist(StorageLevel.MEMORY_ONLY)
     cubesDF.write.parquet("data/test_table/key=2")
 
     // Read the partitioned table
     val mergedDF = spark.read
       .option("mergeSchema", "true")
       .parquet("data/test_table")
-      .cache()
+      .persist(StorageLevel.MEMORY_ONLY)
     mergedDF.printSchema()
 
     // The final schema consists of all 3 columns in the Parquet files together
@@ -287,7 +289,7 @@ object SQLDataSourceExampleCached {
     // A JSON dataset is pointed to by path.
     // The path can be either a single text file or a directory storing text files
     val path = "examples/src/main/resources/people.json"
-    val peopleDF = spark.read.json(path).cache()
+    val peopleDF = spark.read.json(path).persist(StorageLevel.MEMORY_ONLY)
 
     // The inferred schema can be visualized using the printSchema() method
     peopleDF.printSchema()
@@ -300,7 +302,8 @@ object SQLDataSourceExampleCached {
 
     // SQL statements can be run by using the sql methods provided by spark
     val teenagerNamesDF =
-      spark.sql("SELECT name FROM people WHERE age BETWEEN 13 AND 19").cache()
+      spark.sql("SELECT name FROM people WHERE age BETWEEN 13 AND 19")
+      .persist(StorageLevel.MEMORY_ONLY)
     teenagerNamesDF.show()
     // +------+
     // |  name|
@@ -314,7 +317,7 @@ object SQLDataSourceExampleCached {
       .createDataset(
         """{"name":"Yin","address":{"city":"Columbus","state":"Ohio"}}""" :: Nil
       )
-      .cache()
+      .persist(StorageLevel.MEMORY_ONLY)
     val otherPeople = spark.read.json(otherPeopleDataset)
     otherPeople.show()
     // +---------------+----+
@@ -331,7 +334,7 @@ object SQLDataSourceExampleCached {
     // The path can be either a single CSV file or a directory of CSV files
     val path = "examples/src/main/resources/people.csv"
 
-    val df = spark.read.csv(path).cache()
+    val df = spark.read.csv(path).persist(StorageLevel.MEMORY_ONLY)
     df.show()
     // +------------------+
     // |               _c0|
@@ -342,7 +345,7 @@ object SQLDataSourceExampleCached {
     // +------------------+
 
     // Read a csv with delimiter, the default delimiter is ","
-    val df2 = spark.read.option("delimiter", ";").csv(path).cache()
+    val df2 = spark.read.option("delimiter", ";").csv(path).persist(StorageLevel.MEMORY_ONLY)
     df2.show()
     // +-----+---+---------+
     // |  _c0|_c1|      _c2|
@@ -357,7 +360,7 @@ object SQLDataSourceExampleCached {
       .option("delimiter", ";")
       .option("header", "true")
       .csv(path)
-      .cache()
+      .persist(StorageLevel.MEMORY_ONLY)
     df3.show()
     // +-----+---+---------+
     // | name|age|      job|
@@ -370,14 +373,14 @@ object SQLDataSourceExampleCached {
     val df4 = spark.read
       .options(Map("delimiter" -> ";", "header" -> "true"))
       .csv(path)
-      .cache()
+      .persist(StorageLevel.MEMORY_ONLY)
 
     // "output" is a folder which contains multiple csv files and a _SUCCESS file.
     df3.write.csv("output")
 
     // Read all files in a folder, please make sure only CSV files should present in the folder.
     val folderPath = "examples/src/main/resources";
-    val df5 = spark.read.csv(folderPath).cache();
+    val df5 = spark.read.csv(folderPath).persist(StorageLevel.MEMORY_ONLY);
     df5.show();
     // Wrong schema because non-CSV files are read
     // +-----------+
@@ -399,7 +402,7 @@ object SQLDataSourceExampleCached {
     // The path can be either a single text file or a directory of text files
     val path = "examples/src/main/resources/people.txt"
 
-    val df1 = spark.read.text(path).cache()
+    val df1 = spark.read.text(path).persist(StorageLevel.MEMORY_ONLY)
     df1.show()
     // +-----------+
     // |      value|
@@ -411,7 +414,7 @@ object SQLDataSourceExampleCached {
 
     // You can use 'lineSep' option to define the line separator.
     // The line separator handles all `\r`, `\r\n` and `\n` by default.
-    val df2 = spark.read.option("lineSep", ",").text(path).cache()
+    val df2 = spark.read.option("lineSep", ",").text(path).persist(StorageLevel.MEMORY_ONLY)
     df2.show()
     // +-----------+
     // |      value|
@@ -423,7 +426,7 @@ object SQLDataSourceExampleCached {
     // +-----------+
 
     // You can also use 'wholetext' option to read each input file as a single row.
-    val df3 = spark.read.option("wholetext", true).text(path).cache()
+    val df3 = spark.read.option("wholetext", true).text(path).persist(StorageLevel.MEMORY_ONLY)
     df3.show()
     //  +--------------------+
     //  |               value|
@@ -451,7 +454,7 @@ object SQLDataSourceExampleCached {
       .option("user", "username")
       .option("password", "password")
       .load()
-      .cache()
+      .persist(StorageLevel.MEMORY_ONLY)
 
     val connectionProperties = new Properties()
     connectionProperties.put("user", "username")
@@ -462,7 +465,7 @@ object SQLDataSourceExampleCached {
         "schema.tablename",
         connectionProperties
       )
-      .cache()
+      .persist(StorageLevel.MEMORY_ONLY)
     // Specifying the custom data types of the read schema
     connectionProperties.put("customSchema", "id DECIMAL(38, 0), name STRING")
     val jdbcDF3 = spark.read
@@ -471,7 +474,7 @@ object SQLDataSourceExampleCached {
         "schema.tablename",
         connectionProperties
       )
-      .cache()
+      .persist(StorageLevel.MEMORY_ONLY)
 
     // Saving data to a JDBC source
     jdbcDF.write

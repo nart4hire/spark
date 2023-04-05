@@ -27,6 +27,7 @@ import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.mllib.linalg.Vectors
 import org.apache.spark.mllib.stat.MultivariateOnlineSummarizer
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
+import org.apache.spark.storage.StorageLevel
 import org.apache.spark.util.Utils
 
 /**
@@ -68,7 +69,8 @@ object DataFrameExampleCached {
 
     // Load input data
     println(s"Loading LIBSVM file with UDT from ${params.input}.")
-    val df: DataFrame = spark.read.format("libsvm").load(params.input).cache()
+    val df: DataFrame = spark.read.format("libsvm").load(params.input)
+      .persist(StorageLevel.MEMORY_ONLY)
     println("Schema from LIBSVM:")
     df.printSchema()
     println(s"Loaded training data as a DataFrame with ${df.count()} records.")

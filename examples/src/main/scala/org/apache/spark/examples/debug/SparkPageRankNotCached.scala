@@ -76,8 +76,9 @@ object SparkPageRankNotCached {
       ranks = contribs.reduceByKey(_ + _).mapValues(0.15 + 0.85 * _)
     }
 
-    val output = ranks.collect()
-    output.foreach(tup => println(s"${tup._1} has rank:  ${tup._2} ."))
+    ranks.count()
+    // val output = ranks.collect()
+    // output.foreach(tup => println(s"${tup._1} has rank:  ${tup._2} ."))
 
     spark.stop()
   }

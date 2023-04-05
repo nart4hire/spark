@@ -26,6 +26,7 @@ import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.streaming._
 import org.apache.spark.sql.types.{StringType, StructType, TimestampType}
+import org.apache.spark.storage.StorageLevel
 
 /**
  * Sessionize events in UTF8 encoded, '\n' delimited text received from the
@@ -114,7 +115,7 @@ object StructuredComplexSessionizationCached {
       .option("host", host)
       .option("port", port)
       .load()
-      .cache()
+      .persist(StorageLevel.MEMORY_ONLY)
 
     val jsonSchema = new StructType()
       .add("user_id", StringType, nullable = false)
@@ -133,7 +134,7 @@ object StructuredComplexSessionizationCached {
       )
       .withWatermark("timestamp", "10 seconds")
       .as[(String, String, Timestamp)]
-      .cache()
+      .persist(StorageLevel.MEMORY_ONLY)
 
     // Sessionize the events. Track number of events, start and end timestamps of session,
     // and report session when session is closed.
@@ -251,7 +252,7 @@ object StructuredComplexSessionizationCached {
             }
           }
       }
-      .cache()
+      .persist(StorageLevel.MEMORY_ONLY)
 
     // Start running the query that prints the session updates to the console
     val query = sessionUpdates.writeStream

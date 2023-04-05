@@ -73,9 +73,10 @@ object FPGrowthExampleCached {
 
     println(s"Number of frequent itemsets: ${model.freqItemsets.count()}")
 
-    model.freqItemsets.collect().foreach { itemset =>
-      println(s"${itemset.items.mkString("[", ",", "]")}, ${itemset.freq}")
-    }
+    model.freqItemsets.count()
+    // model.freqItemsets.collect().foreach { itemset =>
+    //   println(s"${itemset.items.mkString("[", ",", "]")}, ${itemset.freq}")
+    // }
 
     sc.stop()
   }

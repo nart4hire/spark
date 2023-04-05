@@ -59,30 +59,34 @@ object BinaryClassificationMetricsExampleNotCached {
 
     // Precision by threshold
     val precision = metrics.precisionByThreshold
-    precision.collect.foreach { case (t, p) =>
-      println(s"Threshold: $t, Precision: $p")
-    }
+    precision.count()
+    // precision.collect.foreach { case (t, p) =>
+    //   println(s"Threshold: $t, Precision: $p")
+    // }
 
     // Recall by threshold
     val recall = metrics.recallByThreshold
-    recall.collect.foreach { case (t, r) =>
-      println(s"Threshold: $t, Recall: $r")
-    }
+    recall.count()
+    // recall.collect.foreach { case (t, r) =>
+    //   println(s"Threshold: $t, Recall: $r")
+    // }
 
     // Precision-Recall Curve
     val PRC = metrics.pr
 
     // F-measure
     val f1Score = metrics.fMeasureByThreshold
-    f1Score.collect.foreach { case (t, f) =>
-      println(s"Threshold: $t, F-score: $f, Beta = 1")
-    }
+    f1Score.count()
+    // f1Score.collect.foreach { case (t, f) =>
+    //   println(s"Threshold: $t, F-score: $f, Beta = 1")
+    // }
 
     val beta = 0.5
     val fScore = metrics.fMeasureByThreshold(beta)
-    fScore.collect.foreach { case (t, f) =>
-      println(s"Threshold: $t, F-score: $f, Beta = 0.5")
-    }
+    fScore.count()
+    // fScore.collect.foreach { case (t, f) =>
+    //   println(s"Threshold: $t, F-score: $f, Beta = 0.5")
+    // }
 
     // AUPRC
     val auPRC = metrics.areaUnderPR

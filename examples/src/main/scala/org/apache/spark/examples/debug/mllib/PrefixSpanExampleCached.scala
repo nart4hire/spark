@@ -40,11 +40,12 @@ object PrefixSpanExampleCached {
       .setMinSupport(0.5)
       .setMaxPatternLength(5)
     val model = prefixSpan.run(sequences)
-    model.freqSequences.collect().foreach { freqSequence =>
-      println(
-        s"${freqSequence.sequence.map(_.mkString("[", ", ", "]")).mkString("[", ", ", "]")}," +
-          s" ${freqSequence.freq}")
-    }
+    model.freqSequences.count()
+    // model.freqSequences.collect().foreach { freqSequence =>
+    //   println(
+    //     s"${freqSequence.sequence.map(_.mkString("[", ", ", "]")).mkString("[", ", ", "]")}," +
+    //       s" ${freqSequence.freq}")
+    // }
     // $example off$
 
     sc.stop()

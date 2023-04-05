@@ -20,6 +20,7 @@ package org.apache.spark.examples.debug.sql.streaming
 
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions.{count, session_window}
+import org.apache.spark.storage.StorageLevel
 
 /**
  * Counts words in UTF8 encoded, '\n' delimited text received from the network.
@@ -56,7 +57,7 @@ object StructuredSessionizationCached {
       .option("port", port)
       .option("includeTimestamp", true)
       .load()
-      .cache()
+      .persist(StorageLevel.MEMORY_ONLY)
 
     // Split the lines into words, retaining timestamps
     // split() splits each line into an array, and explode() turns the array into multiple rows
@@ -66,7 +67,7 @@ object StructuredSessionizationCached {
         "explode(split(value, ' ')) AS sessionId",
         "timestamp AS eventTime"
       )
-      .cache()
+      .persist(StorageLevel.MEMORY_ONLY)
 
     // Sessionize the events. Track number of events, start and end timestamps of session,
     // and report session updates.
@@ -83,7 +84,7 @@ object StructuredSessionizationCached {
         "CAST(session.end AS LONG) - CAST(session.start AS LONG) AS durationMs",
         "numEvents"
       )
-      .cache()
+      .persist(StorageLevel.MEMORY_ONLY)
 
     // Start running the query that prints the session updates to the console
     val query = sessionUpdates.writeStream

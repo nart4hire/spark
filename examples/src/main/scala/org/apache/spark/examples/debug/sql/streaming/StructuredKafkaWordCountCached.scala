@@ -21,6 +21,7 @@ package org.apache.spark.examples.debug.sql.streaming
 import java.util.UUID
 
 import org.apache.spark.sql.SparkSession
+import org.apache.spark.storage.StorageLevel
 
 /**
  * Consumes messages from one or more topics in Kafka and does wordcount.
@@ -73,11 +74,11 @@ object StructuredKafkaWordCountCached {
       .load()
       .selectExpr("CAST(value AS STRING)")
       .as[String]
-      .cache()
+      .persist(StorageLevel.MEMORY_ONLY)
 
     // Generate running word count
     val wordCounts =
-      lines.flatMap(_.split(" ")).groupBy("value").count().cache()
+      lines.flatMap(_.split(" ")).groupBy("value").count().persist(StorageLevel.MEMORY_ONLY)
 
     // Start running the query that prints the running counts to the console
     val query = wordCounts.writeStream

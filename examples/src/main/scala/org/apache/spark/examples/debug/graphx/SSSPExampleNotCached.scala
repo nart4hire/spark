@@ -60,7 +60,9 @@ object SSSPExampleNotCached {
       },
       (a, b) => math.min(a, b) // Merge Message
     )
-    println(sssp.vertices.collect.mkString("\n"))
+    val sssp1 = sssp.vertices
+    sssp1.count()
+    // println(sssp.vertices.collect.mkString("\n"))
     // $example off$
 
     spark.stop()

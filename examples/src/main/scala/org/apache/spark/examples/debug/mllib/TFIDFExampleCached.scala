@@ -54,11 +54,13 @@ object TFIDFExampleCached {
     val tfidfIgnore: RDD[Vector] = idfIgnore.transform(tf)
     // $example off$
 
-    println("tfidf: ")
-    tfidf.collect.foreach(x => println(x))
+    tfidf.count()
+    // println("tfidf: ")
+    // tfidf.collect.foreach(x => println(x))
 
-    println("tfidfIgnore: ")
-    tfidfIgnore.collect.foreach(x => println(x))
+    tfidfIgnore.count()
+    // println("tfidfIgnore: ")
+    // tfidfIgnore.collect.foreach(x => println(x))
 
     sc.stop()
   }

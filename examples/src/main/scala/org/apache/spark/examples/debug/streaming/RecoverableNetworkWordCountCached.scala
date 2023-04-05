@@ -136,8 +136,9 @@ object RecoverableNetworkWordCountCached {
             true
           }
         }
-        .collect()
-        .mkString("[", ", ", "]")
+        .count()
+        // .collect()
+        // .mkString("[", ", ", "]")
       val output = s"Counts at time $time $counts"
       println(output)
       println(s"Dropped ${droppedWordsCounter.value} word(s) totally")

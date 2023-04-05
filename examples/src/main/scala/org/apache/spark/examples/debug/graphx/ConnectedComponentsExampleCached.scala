@@ -59,8 +59,10 @@ object ConnectedComponentsExampleCached {
     val ccByUsername = users.join(cc).map {
       case (id, (username, cc)) => (username, cc)
     }.cache()
+    // Trigger computation
+    ccByUsername.count()
     // Print the result
-    println(ccByUsername.collect().mkString("\n"))
+    // println(ccByUsername.collect().mkString("\n"))
     // $example off$
     spark.stop()
   }

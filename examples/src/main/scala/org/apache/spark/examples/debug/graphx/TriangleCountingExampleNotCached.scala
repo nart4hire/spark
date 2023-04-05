@@ -53,16 +53,10 @@ object TriangleCountingExampleNotCached {
       .partitionBy(PartitionStrategy.RandomVertexCut)
     // Find the triangle count for each vertex
     val triCounts = graph.triangleCount().vertices
-    // Join the triangle counts with the usernames
-    val users = sc.textFile(args(1)).map { line => // "data/graphx/users.txt"
-      val fields = line.split(",")
-      (fields(0).toLong, fields(1))
-    }
-    val triCountByUsername = users.join(triCounts).map { case (id, (username, tc)) =>
-      (username, tc)
-    }
+    // Trigger execution of the job
+    triCounts.count()
     // Print the result
-    println(triCountByUsername.collect().mkString("\n"))
+    // println(triCounts.collect().mkString("\n"))
     // $example off$
     spark.stop()
   }

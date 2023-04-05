@@ -62,8 +62,10 @@ object AggregateMessagesExampleCached {
     val avgAgeOfOlderFollowers: VertexRDD[Double] =
       olderFollowers.mapValues( (id, value) =>
         value match { case (count, totalAge) => totalAge / count } ).cache()
+    // Trigger computation
+    avgAgeOfOlderFollowers.count()
     // Display the results
-    avgAgeOfOlderFollowers.collect.foreach(println(_))
+    // avgAgeOfOlderFollowers.collect.foreach(println(_))
     // $example off$
 
     spark.stop()

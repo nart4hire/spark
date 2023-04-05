@@ -22,6 +22,7 @@ import java.sql.Timestamp
 
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
+import org.apache.spark.storage.StorageLevel
 
 /**
  * Counts words in UTF8 encoded, '\n' delimited text received from the network
@@ -82,14 +83,14 @@ object StructuredNetworkWordCountWindowedCached {
       .option("port", port)
       .option("includeTimestamp", true)
       .load()
-      .cache()
+      .persist(StorageLevel.MEMORY_ONLY)
 
     // Split the lines into words, retaining timestamps
     val words = lines
       .as[(String, Timestamp)]
       .flatMap(line => line._1.split(" ").map(word => (word, line._2)))
       .toDF("word", "timestamp")
-      .cache()
+      .persist(StorageLevel.MEMORY_ONLY)
 
     // Group the data by window and word and compute the count of each group
     val windowedCounts = words
@@ -99,7 +100,7 @@ object StructuredNetworkWordCountWindowedCached {
       )
       .count()
       .orderBy("window")
-      .cache()
+      .persist(StorageLevel.MEMORY_ONLY)
 
     // Start running the query that prints the windowed word counts to the console
     val query = windowedCounts.writeStream

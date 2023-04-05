@@ -52,8 +52,10 @@ object PageRankExampleCached {
     val ranksByUsername = users.join(ranks).map {
       case (id, (username, rank)) => (username, rank)
     }.cache()
+    // Trigger computation
+    ranksByUsername.count()
     // Print the result
-    println(ranksByUsername.collect().mkString("\n"))
+    // println(ranksByUsername.collect().mkString("\n"))
     // $example off$
     spark.stop()
   }

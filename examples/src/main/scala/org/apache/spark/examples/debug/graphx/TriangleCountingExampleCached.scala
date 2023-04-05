@@ -50,19 +50,13 @@ object TriangleCountingExampleCached {
     // $example on$
     // Load the edges in canonical order and partition the graph for triangle count
     val graph = GraphLoader.edgeListFile(sc, args(0), true) // "data/graphx/followers.txt"
-      .partitionBy(PartitionStrategy.RandomVertexCut)
+      .partitionBy(PartitionStrategy.RandomVertexCut).cache()
     // Find the triangle count for each vertex
     val triCounts = graph.triangleCount().vertices.cache()
-    // Join the triangle counts with the usernames
-    val users = sc.textFile(args(1)).map { line => // "data/graphx/users.txt"
-      val fields = line.split(",")
-      (fields(0).toLong, fields(1))
-    }.cache()
-    val triCountByUsername = users.join(triCounts).map { case (id, (username, tc)) =>
-      (username, tc)
-    }.cache()
+    // Trigger execution of the job
+    triCounts.count()
     // Print the result
-    println(triCountByUsername.collect().mkString("\n"))
+    // println(triCounts.collect().mkString("\n"))
     // $example off$
     spark.stop()
   }

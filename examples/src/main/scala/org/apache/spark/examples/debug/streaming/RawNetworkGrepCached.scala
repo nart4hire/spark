@@ -66,7 +66,8 @@ object RawNetworkGrepCached {
     union
       .filter(_.contains("the"))
       .count()
-      .foreachRDD(r => println(s"Grep count: ${r.collect().mkString}"))
+      .foreachRDD(r => r.count())
+      // .foreachRDD(r => println(s"Grep count: ${r.collect().mkString}"))
     ssc.start()
     ssc.awaitTermination()
   }
