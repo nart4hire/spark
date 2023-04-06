@@ -22,6 +22,7 @@ package org.apache.spark.examples.debug.graphx
 import org.apache.spark.graphx.{GraphLoader, PartitionStrategy}
 // $example off$
 import org.apache.spark.sql.SparkSession
+import org.apache.spark.storage.StorageLevel
 
 /**
  * A vertex is part of a triangle when it has two adjacent vertices with an edge between them.
@@ -50,9 +51,9 @@ object TriangleCountingExampleCached {
     // $example on$
     // Load the edges in canonical order and partition the graph for triangle count
     val graph = GraphLoader.edgeListFile(sc, args(0), true) // "data/graphx/followers.txt"
-      .partitionBy(PartitionStrategy.RandomVertexCut).cache()
+      .partitionBy(PartitionStrategy.RandomVertexCut).persist(StorageLevel.MEMORY_ONLY)
     // Find the triangle count for each vertex
-    val triCounts = graph.triangleCount().vertices.cache()
+    val triCounts = graph.triangleCount().vertices.persist(StorageLevel.MEMORY_ONLY)
     // Trigger execution of the job
     triCounts.count()
     // Print the result
