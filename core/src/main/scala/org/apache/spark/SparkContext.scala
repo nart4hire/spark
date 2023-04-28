@@ -298,6 +298,12 @@ class SparkContext(config: SparkConf) extends Logging {
   }
   def statusTracker: SparkStatusTracker = _statusTracker
 
+  // Keeps Track of RDD children
+  private[spark] val rddChildren = {
+    val map: ConcurrentMap[Int, Seq[Int]] = new MapMaker().makeMap[Int, Seq[Int]]()
+    map.asScala
+  }
+
   private[spark] def progressBar: Option[ConsoleProgressBar] = _progressBar
 
   private[spark] def ui: Option[SparkUI] = _ui
@@ -2188,6 +2194,7 @@ class SparkContext(config: SparkConf) extends Logging {
     SparkContext.clearActiveContext()
     logInfo("Successfully stopped SparkContext")
   }
+
   private def parseTotalFound(): Unit = {
     val appname = this.conf.get("spark.app.name")
     val tracePath: String = System.getProperty("user.dir") + "/trace/"
@@ -2226,6 +2233,7 @@ class SparkContext(config: SparkConf) extends Logging {
     osw.close()
     br.close()
   }
+
   private def parseTotalChild(): Unit = {
     val appname = this.conf.get("spark.app.name")
     val tracePath: String = System.getProperty("user.dir") + "/trace/"
@@ -2317,6 +2325,12 @@ class SparkContext(config: SparkConf) extends Logging {
     )
   }
 
+  private def recommendRDD(): Unit = {
+    logInfo("Recommended RDDs to Cache: " + rddChildren.filter({
+      case (_, v) => v.length > 1
+    }).toString())
+  }
+
   private def printDependencies(rdd: RDD[_]): Unit = {
     val appname = this.conf.get("spark.app.name")
     val tracePath: String = System.getProperty("user.dir") + "/trace/"
@@ -2340,6 +2354,7 @@ class SparkContext(config: SparkConf) extends Logging {
     osw.flush()
     osw.close()
   }
+
   private def traverseChildren(rdd: RDD[_]): Seq[String] = {
     val len = rdd.dependencies.length
     len match {
@@ -2351,8 +2366,8 @@ class SparkContext(config: SparkConf) extends Logging {
       case _ =>
         rdd.dependencies.flatMap(d => (("" + d.rdd.id) +: traverseChildren(d.rdd)))
     }
-    // traverseChildren(rdd)
   }
+
   private def getJobNums(): Int = {
     val appname = this.conf.get("spark.app.name")
     val tracePath: String = System.getProperty("user.dir") + "/trace/"
@@ -2400,6 +2415,7 @@ class SparkContext(config: SparkConf) extends Logging {
     }
     dagScheduler.runJob(rdd, cleanedFunc, partitions, callSite, resultHandler, localProperties.get)
     progressBar.foreach(_.finishAll())
+    recommendRDD()
     rdd.doCheckpoint()
   }
 
