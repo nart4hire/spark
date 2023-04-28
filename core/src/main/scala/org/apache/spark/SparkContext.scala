@@ -2178,6 +2178,8 @@ class SparkContext(config: SparkConf) extends Logging {
     if (_statusStore != null) {
       _statusStore.close()
     }
+    parseTotalFound()
+    parseTotalChild()
     // Clear this `InheritableThreadLocal`, or it will still be inherited in child threads even this
     // `SparkContext` is stopped.
     localProperties.remove()
@@ -2186,7 +2188,87 @@ class SparkContext(config: SparkConf) extends Logging {
     SparkContext.clearActiveContext()
     logInfo("Successfully stopped SparkContext")
   }
-
+  private def parseTotalFound(): Unit = {
+    val appname = this.conf.get("spark.app.name")
+    val tracePath: String = System.getProperty("user.dir") + "/trace/"
+    val traceDir: File = new File(tracePath);
+    if (!traceDir.exists()) {
+      traceDir.mkdir()
+    }
+    val traceFile: File = new File(tracePath + appname + "Trace.txt")
+    if(!traceFile.exists()) {
+      return
+    }
+    val fis = new FileInputStream(traceFile)
+    val br = new BufferedReader(new InputStreamReader(fis))
+    var str = br.readLine()
+    var map = Map[Int, Int]()
+    while (str != null) {
+      var content = str.split(" ").last.split("-")
+      for (i <- 0 to content.length - 1) {
+        if (map.get(content(i).toInt) != None) {
+          var idx = content(i).toInt
+          var temp = map.get(idx).get.toInt + 1
+          map = map + (idx -> temp)
+        } else {
+          map = map + (content(i).toInt -> 1)
+        }
+      }
+      str = br.readLine()
+    }
+    val fos = new FileOutputStream(tracePath + appname + "TotalFound.txt", true)
+    val osw = new OutputStreamWriter(fos)
+    val sb = new StringBuffer
+    val mapPrint = map.toSeq.sortBy(_._1)
+    mapPrint.foreach{case (key, value) => sb.append(s"$key = $value\n")}
+    osw.write(sb.toString)
+    osw.flush()
+    osw.close()
+    br.close()
+  }
+  private def parseTotalChild(): Unit = {
+    val appname = this.conf.get("spark.app.name")
+    val tracePath: String = System.getProperty("user.dir") + "/trace/"
+    val traceDir: File = new File(tracePath);
+    if (!traceDir.exists()) {
+      traceDir.mkdir()
+    }
+    val traceFile: File = new File(tracePath + appname + "Trace.txt")
+    if(!traceFile.exists()) {
+      return
+    }
+    val fis = new FileInputStream(traceFile)
+    val br = new BufferedReader(new InputStreamReader(fis))
+    var str = br.readLine()
+    var map = Map[Int, Array[String]]()
+    while (str != null) {
+      var content = str.split(" ").last.split("-")
+      for (i <- 0 to content.length - 2) {
+        if (map.get(content(i + 1).toInt) != None) {
+          var count = map.get(content(i + 1).toInt).get.count(_ == content(i))
+          if (count == 0) {
+            var idx = content(i + 1).toInt
+            var temp = map.get(idx).get
+            map = map + (idx -> Array.concat(temp, Array(content(i))))
+          }
+        } else {
+          map = map + (content(i + 1).toInt -> Array(content(i)))
+        }
+      }
+      str = br.readLine()
+    }
+    val fos = new FileOutputStream(tracePath + appname + "TotalChild.txt", true)
+    val osw = new OutputStreamWriter(fos)
+    val sb = new StringBuffer
+    val mapPrint = map.toSeq.sortBy(_._1)
+    mapPrint.foreach{case (key, value) =>
+      var len = value.length
+      sb.append(s"$key = $len\n")}
+    osw.write(sb.toString)
+    osw.flush()
+    osw.close()
+    br.close()
+  }
 
   /**
    * Get Spark's home location from either a value set through the constructor,
@@ -2235,6 +2317,62 @@ class SparkContext(config: SparkConf) extends Logging {
     )
   }
 
+  private def printDependencies(rdd: RDD[_]): Unit = {
+    val appname = this.conf.get("spark.app.name")
+    val tracePath: String = System.getProperty("user.dir") + "/trace/"
+    val traceDir: File = new File(tracePath);
+    if (!traceDir.exists()) {
+      traceDir.mkdir()
+    }
+    val traceFile: File = new File(tracePath + appname + "Trace.txt")
+    if(!traceFile.exists()) {
+      traceFile.createNewFile()
+    }
+    val fos = new FileOutputStream(traceFile, true)
+    val osw = new OutputStreamWriter(fos)
+    val sb = new StringBuffer
+    var jobNum = getJobNums()
+    sb.append("job " + jobNum + " ")
+    sb.append(rdd.id + "-")
+    val child = traverseChildren(rdd).mkString("-")
+    sb.append(child)
+    osw.write(sb.toString + "\r\n")
+    osw.flush()
+    osw.close()
+  }
+  private def traverseChildren(rdd: RDD[_]): Seq[String] = {
+    val len = rdd.dependencies.length
+    len match {
+      case 0 => Seq.empty
+      case 1 =>
+        val childrdd = rdd.dependencies.head.rdd
+        val childrddid = childrdd.id
+        (childrddid + "") +: traverseChildren(childrdd)
+      case _ =>
+        rdd.dependencies.flatMap(d => (("" + d.rdd.id) +: traverseChildren(d.rdd)))
+    }
+    // traverseChildren(rdd)
+  }
+  private def getJobNums(): Int = {
+    val appname = this.conf.get("spark.app.name")
+    val tracePath: String = System.getProperty("user.dir") + "/trace/"
+    val traceFile: File = new File(tracePath + appname + "Trace.txt")
+    if (!traceFile.exists()) {
+      return 0
+    }
+    val fis = new FileInputStream(traceFile)
+    val br = new BufferedReader(new InputStreamReader(fis))
+    var str = br.readLine()
+    var result = 0
+    while (str != null) {
+      if (str.startsWith("job")) {
+        result += 1
+      }
+      str = br.readLine()
+    }
+    result
+  }
+
   /**
    * Run a function on a given set of partitions in an RDD and pass the results to the given
    * handler function. This is the main entry point for all actions in Spark.
@@ -2253,6 +2391,7 @@ class SparkContext(config: SparkConf) extends Logging {
     if (stopped.get()) {
       throw new IllegalStateException("SparkContext has been shutdown")
     }
+    printDependencies(rdd)
     val callSite = getCallSite
     val cleanedFunc = clean(func)
     logInfo("Starting job: " + callSite.shortForm)
