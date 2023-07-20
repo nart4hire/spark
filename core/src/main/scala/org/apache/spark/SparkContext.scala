@@ -298,9 +298,9 @@ class SparkContext(config: SparkConf) extends Logging {
   }
   def statusTracker: SparkStatusTracker = _statusTracker
 
-  // Keeps Track of RDD children
+  // Keeps Track of RDD children and also Tracks RDDs while running job
   private[spark] val rddChildren = {
-    val map: ConcurrentMap[Int, Seq[Int]] = new MapMaker().makeMap[Int, Seq[Int]]()
+    val map: ConcurrentMap[RDD[_], Seq[Int]] = new MapMaker().makeMap[RDD[_], Seq[Int]]()
     map.asScala
   }
 
@@ -2325,10 +2325,52 @@ class SparkContext(config: SparkConf) extends Logging {
     )
   }
 
-  private def recommendRDD(): Unit = {
-    logInfo("Recommended RDDs to Cache: " + rddChildren.filter({
-      case (_, v) => v.length > 1
-    }).toString())
+  private def cacheRDDs(): Unit = {
+    val tossed = rddChildren.filter({
+      case (_, v) => v.length < 2
+    })
+
+    tossed.foreach({
+      case (k, _) => rddChildren -= k
+    })
+
+    logInfo("RDDs to be Cached: " + rddChildren.keys.toString())
+
+    rddChildren.foreach{
+      case (parent, _) => parent.persist_internal(StorageLevel.MEMORY_ONLY)
+    }
+  }
+
+  private[spark] def uncacheRDDs(rdd: RDD[_], root: Boolean = true): Unit = {
+    // Topmost parent guard
+    rdd.dependencies.length match {
+      case 0 => return
+      case _ =>
+        rddChildren.foreach{
+          case (parent, children) =>
+          if (children contains rdd.id) {
+            rddChildren(parent) = children diff Seq[Int](rdd.id)
+          }
+        }
+
+        rdd.dependencies.foreach{
+          d =>
+          uncacheRDDs(d.rdd, root = false)
+        }
+
+        if (root) {
+          val uncache = rddChildren.filter({
+            case (_, v) => v.length == 0
+          })
+
+          uncache.foreach{
+            case (parent, _) =>
+              logInfo("Uncached " + parent)
+              rddChildren -= parent
+              parent.unpersist_internal()
+          }
+        }
+    }
   }
 
   private def printDependencies(rdd: RDD[_]): Unit = {
@@ -2388,6 +2430,37 @@ class SparkContext(config: SparkConf) extends Logging {
     result
   }
 
+
+  private def tallyChildren(rdd: RDD[_], root: Boolean = true): Unit = {
+    // Topmost parent guard
+    rdd.dependencies.length match {
+      case 0 => return
+      case _ =>
+        rdd.dependencies.foreach {
+          d =>
+          // Append children to map
+          val parentRDD = d.rdd
+          if (!rddChildren.contains(parentRDD)) {
+            rddChildren(parentRDD) = Seq[Int](rdd.id)
+          } else if (!(rddChildren(parentRDD) contains rdd.id)) {
+            rddChildren(parentRDD) = rddChildren(parentRDD) :+ rdd.id
+          }
+
+          // Recursion
+          tallyChildren(d.rdd, root = false)
+        }
+
+        if (root) {
+          logInfo("RDD Lineage: " + rddChildren.toString())
+        }
+    }
+  }
+
+  private def clearChildren(): Unit = {
+    rddChildren.clear()
+  }
+
+
   /**
    * Run a function on a given set of partitions in an RDD and pass the results to the given
    * handler function. This is the main entry point for all actions in Spark.
@@ -2406,7 +2479,9 @@ class SparkContext(config: SparkConf) extends Logging {
     if (stopped.get()) {
       throw new IllegalStateException("SparkContext has been shutdown")
     }
-    printDependencies(rdd)
+    tallyChildren(rdd)
+    cacheRDDs()
+
     val callSite = getCallSite
     val cleanedFunc = clean(func)
     logInfo("Starting job: " + callSite.shortForm)
@@ -2415,8 +2490,9 @@ class SparkContext(config: SparkConf) extends Logging {
     }
     dagScheduler.runJob(rdd, cleanedFunc, partitions, callSite, resultHandler, localProperties.get)
     progressBar.foreach(_.finishAll())
-    recommendRDD()
     rdd.doCheckpoint()
+
+    clearChildren()
   }
 
   /**

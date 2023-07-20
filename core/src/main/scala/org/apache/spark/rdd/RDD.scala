@@ -176,12 +176,7 @@ abstract class RDD[T: ClassTag](
     this
   }
 
-  /**
-   * Set this RDD's storage level to persist its values across operations after the first time
-   * it is computed. This can only be used to assign a new storage level if the RDD does not
-   * have a storage level set yet. Local checkpointing is an exception.
-   */
-  def persist(newLevel: StorageLevel): this.type = {
+  private[spark] def persist_internal(newLevel: StorageLevel): this.type = {
     if (isLocallyCheckpointed) {
       // This means the user previously called localCheckpoint(), which should have already
       // marked this RDD for persisting. Here we should override the old storage level with
@@ -190,17 +185,39 @@ abstract class RDD[T: ClassTag](
     } else {
       persist(newLevel, allowOverride = false)
     }
+    this
+  }
+
+  /**
+   * Set this RDD's storage level to persist its values across operations after the first time
+   * it is computed. This can only be used to assign a new storage level if the RDD does not
+   * have a storage level set yet. Local checkpointing is an exception.
+   */
+  def persist(newLevel: StorageLevel): this.type = {
+    /** Ignore for now
+    if (isLocallyCheckpointed) {
+      // This means the user previously called localCheckpoint(), which should have already
+      // marked this RDD for persisting. Here we should override the old storage level with
+      // one that is explicitly requested by the user (after adapting it to use disk).
+      persist(LocalRDDCheckpointData.transformStorageLevel(newLevel), allowOverride = true)
+    } else {
+      persist(newLevel, allowOverride = false)
+    }
+    */
+    this
   }
 
   /**
    * Persist this RDD with the default storage level (`MEMORY_ONLY`).
    */
-  def persist(): this.type = persist(StorageLevel.MEMORY_ONLY)
+  // def persist(): this.type = persist(StorageLevel.MEMORY_ONLY)
+  def persist(): this.type = this
 
   /**
    * Persist this RDD with the default storage level (`MEMORY_ONLY`).
    */
-  def cache(): this.type = persist()
+  // def cache(): this.type = persist()
+  def cache(): this.type = this
 
   /**
    * Mark the RDD as non-persistent, and remove all blocks for it from memory and disk.
@@ -209,6 +226,15 @@ abstract class RDD[T: ClassTag](
    * @return This RDD.
    */
   def unpersist(blocking: Boolean = false): this.type = {
+    /** Ignore for now
+    logInfo(s"Removing RDD $id from persistence list")
+    sc.unpersistRDD(id, blocking)
+    storageLevel = StorageLevel.NONE
+     */
+    this
+  }
+
+  private[spark] def unpersist_internal(blocking: Boolean = false): this.type = {
     logInfo(s"Removing RDD $id from persistence list")
     sc.unpersistRDD(id, blocking)
     storageLevel = StorageLevel.NONE

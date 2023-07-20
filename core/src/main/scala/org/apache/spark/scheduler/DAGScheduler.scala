@@ -876,32 +876,6 @@ private[spark] class DAGScheduler(
     }
   }
 
-
-  private def tallyChildren(rdd: RDD[_], root: Boolean = true): Unit = {
-    // Topmost parent guard
-    rdd.dependencies.length match {
-      case 0 => return
-      case _ =>
-        rdd.dependencies.foreach {
-          d =>
-          // Append children to map
-          val parentRDD = d.rdd
-          if (!sc.rddChildren.contains(parentRDD.id)) {
-            sc.rddChildren(parentRDD.id) = Seq[Int](rdd.id)
-          } else if (!(sc.rddChildren(parentRDD.id) contains rdd.id)) {
-            sc.rddChildren(parentRDD.id) = sc.rddChildren(parentRDD.id) :+ rdd.id
-          }
-
-          // Recursion
-          tallyChildren(d.rdd, root = false)
-        }
-
-        if (root) {
-          logInfo("RDD Children Map So Far: " + sc.rddChildren.toString())
-        }
-    }
-  }
-
   /**
    * Submit an action job to the scheduler.
    *
@@ -1372,7 +1346,7 @@ private[spark] class DAGScheduler(
   /** Submits stage, but first recursively submits any missing parents. */
   private def submitStage(stage: Stage): Unit = {
     // Tally the children
-    tallyChildren(stage.rdd)
+    // tallyChildren(stage.rdd)
 
     val jobId = activeJobForStage(stage)
     if (jobId.isDefined) {
@@ -2715,6 +2689,9 @@ private[spark] class DAGScheduler(
       // re-used many times in a long-running job, unrelated failures don't eventually cause the
       // stage to be aborted.
       stage.clearFailures()
+
+      // Clear the RDD of the stage from the cachelist
+      sc.uncacheRDDs(stage.rdd)
     } else {
       stage.latestInfo.stageFailed(errorMessage.get)
       logInfo(s"$stage (${stage.name}) failed in $serviceTime s due to ${errorMessage.get}")
