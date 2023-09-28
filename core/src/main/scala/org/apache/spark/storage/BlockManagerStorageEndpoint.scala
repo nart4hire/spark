@@ -48,6 +48,11 @@ class BlockManagerStorageEndpoint(
         true
       }
 
+    // instrument code
+    case RefDistanceBroadcast(refDistance) =>
+      blockManager.memoryStore.updateRef(refDistance)
+    // instrument code end
+
     case RemoveRdd(rddId) =>
       doAsync[Int]("removing RDD " + rddId, context) {
         blockManager.removeRdd(rddId)

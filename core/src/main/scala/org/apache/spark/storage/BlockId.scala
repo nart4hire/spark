@@ -46,6 +46,13 @@ sealed abstract class BlockId {
   def isShuffleChunk: Boolean = isInstanceOf[ShuffleBlockChunkId]
   def isBroadcast: Boolean = isInstanceOf[BroadcastBlockId]
 
+  // instrument code
+  var priority: Double = 99
+  def updatePriority(newPriority: Double): Unit = {
+    priority = newPriority
+  }
+  // instrument code end
+
   override def toString: String = name
 }
 

@@ -93,6 +93,12 @@ private[spark] class MemoryStore(
 
   private val entries = new LinkedHashMap[BlockId, MemoryEntry[_]](32, 0.75f, true)
 
+  // instrument code
+  // key = rdd id, value = ref distance
+  private var refDistance = new mutable.HashMap[Int, Seq[Int]]()
+  private val keyToBlockId = new mutable.HashMap[String, BlockId]()
+  // instrument code end
+
   // A mapping from taskAttemptId to amount of memory used for unrolling a block (in bytes)
   // All accesses of this map are assumed to have manually synchronized on `memoryManager`
   private val onHeapUnrollMemoryMap = mutable.HashMap[Long, Long]()
@@ -134,6 +140,59 @@ private[spark] class MemoryStore(
     }
   }
 
+  // instrument code
+  def updateRef(refDistanceMaster: mutable.HashMap[Int, Seq[Int]]): Unit = {
+    refDistance.synchronized {
+      refDistance = refDistanceMaster.clone()
+    }
+  }
+
+  def putOrUpdateBlock(id: String, partition: BlockId): Unit = {
+    keyToBlockId.synchronized {
+      if (id.split("_")(0) != "rdd") {
+        return
+      }
+      keyToBlockId.put(id.split("_")(1) + "_" + id.split("_")(2), partition)
+    }
+  }
+
+  def calculatePriority(stageIdNow: Int): Unit = {
+    if (refDistance.isEmpty) {
+      return
+    }
+    var refDistanceClone = refDistance.clone()
+    var refDistanceLow = new mutable.HashMap[Int, Int]
+    // determine priorities
+    for ((rddId, stageIdRefs) <- refDistanceClone) {
+      var temp = Seq[Int]()
+      for (stageIdRef <- stageIdRefs) {
+        var diff = stageIdRef - stageIdNow
+        if (diff >= 0) {
+          temp = temp :+ diff
+        }
+      }
+      if (!temp.isEmpty) {
+        refDistanceLow(rddId) = temp.min
+      } else {
+        refDistanceLow(rddId) = 99
+      }
+    }
+    var rddsPriority = refDistanceLow.toList.sortBy(_._2).reverse
+
+    // update priority to keyToBlockId
+    keyToBlockId.synchronized {
+      for (((rddIdPrior, _), index) <- rddsPriority.zipWithIndex) {
+        for ((key, blockId) <- keyToBlockId) {
+          var rddIdKey = key.split("_")(0).toInt
+          if (rddIdKey == rddIdPrior) {
+            blockId.updatePriority((index + 1).toDouble)
+          }
+        }
+      }
+    }
+  }
+  // instrument code end
+
   /**
    * Use `size` to test if there is enough space in MemoryStore. If so, create the ByteBuffer and
    * put it into MemoryStore. Otherwise, the ByteBuffer won't be created.
@@ -155,6 +214,9 @@ private[spark] class MemoryStore(
       val entry = new SerializedMemoryEntry[T](bytes, memoryMode, implicitly[ClassTag[T]])
       entries.synchronized {
         entries.put(blockId, entry)
+        // instrument code
+        putOrUpdateBlock(blockId.name, blockId)
+        // instrument code end
       }
       logInfo("Block %s stored as bytes in memory (estimated size %s, free %s)".format(
         blockId, Utils.bytesToString(size), Utils.bytesToString(maxMemory - blocksMemoryUsed)))
@@ -264,6 +326,9 @@ private[spark] class MemoryStore(
 
         entries.synchronized {
           entries.put(blockId, entry)
+          // instrument code
+          putOrUpdateBlock(blockId.name, blockId)
+          // instrument code end
         }
 
         logInfo("Block %s stored as values in memory (estimated size %s, free %s)".format(blockId,
@@ -413,6 +478,13 @@ private[spark] class MemoryStore(
       memoryManager.releaseStorageMemory(entry.size, entry.memoryMode)
       logDebug(s"Block $blockId of size ${entry.size} dropped " +
         s"from memory (free ${maxMemory - blocksMemoryUsed})")
+      // instrument code
+      if (blockId.name.split("_")(0) == "rdd") {
+        keyToBlockId.synchronized {
+          keyToBlockId.remove(blockId.name.split("_")(1) + "_" + blockId.name.split("_")(2))
+        }
+      }
+      // instrument code end
       true
     } else {
       false
@@ -423,6 +495,9 @@ private[spark] class MemoryStore(
     entries.synchronized {
       entries.values.asScala.foreach(freeMemoryEntry)
       entries.clear()
+      // instrument code
+      keyToBlockId.clear()
+      // instrument code end
     }
     onHeapUnrollMemoryMap.clear()
     offHeapUnrollMemoryMap.clear()
@@ -453,6 +528,9 @@ private[spark] class MemoryStore(
       space: Long,
       memoryMode: MemoryMode): Long = {
     assert(space > 0)
+    // instrument code
+    val stageId = TaskContext.get().stageId()
+    // instrument code end
     memoryManager.synchronized {
       var freedMemory = 0L
       val rddToAdd = blockId.flatMap(getRddId)
@@ -464,11 +542,20 @@ private[spark] class MemoryStore(
       // (because of getValue or getBytes) while traversing the iterator, as that
       // can lead to exceptions.
       entries.synchronized {
-        val iterator = entries.entrySet().iterator()
+        // instrument code
+        // val iterator = entries.entrySet().iterator()
+        calculatePriority(stageId)
+        val iterator = keyToBlockId.toList.sortBy(_._2.priority).iterator
+        // instrument code end
         while (freedMemory < space && iterator.hasNext) {
+          // instrument code
+          // val pair = iterator.next()
+          // val blockId = pair.getKey
+          // val entry = pair.getValue
           val pair = iterator.next()
-          val blockId = pair.getKey
-          val entry = pair.getValue
+          val blockId = pair._2
+          val entry = entries.get(blockId)
+          // instrument code end
           if (blockIsEvictable(blockId, entry)) {
             // We don't want to evict blocks which are currently being read, so we need to obtain
             // an exclusive write lock on blocks which are candidates for eviction. We perform a

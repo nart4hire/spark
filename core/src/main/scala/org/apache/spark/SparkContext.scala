@@ -291,6 +291,24 @@ class SparkContext(config: SparkConf) extends Logging {
   }
   def statusTracker: SparkStatusTracker = _statusTracker
 
+  // instrument code
+  // Keeps Track of RDD children and also Tracks RDDs while running job
+  private[spark] val rddChildren = {
+    val map: ConcurrentMap[RDD[_], Seq[Int]] = new MapMaker().makeMap[RDD[_], Seq[Int]]()
+    map.asScala
+  }
+
+  // Keep Track of RDDs Reference Distance
+  // key = rdd, value = ref distance
+  private[spark] var refDistance = new HashMap[Int, Seq[Int]]
+
+  // Keep Track of RDDs That are cached
+  private[spark] var cachedRDDs = Seq[RDD[_]]()
+
+  // Keep Track final RDD for every Job
+  private[spark] var jobIdToFinalRDD = new HashMap[Int, RDD[_]]
+  // instrument code end
+
   private[spark] def progressBar: Option[ConsoleProgressBar] = _progressBar
 
   private[spark] def ui: Option[SparkUI] = _ui
@@ -2197,6 +2215,12 @@ class SparkContext(config: SparkConf) extends Logging {
     )
   }
 
+  // instrument code
+  private def clearChildren(): Unit = {
+    rddChildren.clear()
+  }
+  // instrument code end
+
   /**
    * Run a function on a given set of partitions in an RDD and pass the results to the given
    * handler function. This is the main entry point for all actions in Spark.
@@ -2224,6 +2248,9 @@ class SparkContext(config: SparkConf) extends Logging {
     dagScheduler.runJob(rdd, cleanedFunc, partitions, callSite, resultHandler, localProperties.get)
     progressBar.foreach(_.finishAll())
     rdd.doCheckpoint()
+    // instrument code
+    clearChildren()
+    // instrument code end
   }
 
   /**

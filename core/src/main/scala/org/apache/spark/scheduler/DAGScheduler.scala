@@ -1178,6 +1178,114 @@ private[spark] class DAGScheduler(
     listenerBus.post(SparkListenerTaskGettingResult(taskInfo))
   }
 
+  // instrument code
+  private def parseRefDistance(stageInfos: Array[StageInfo], jobId: Int): Unit = {
+    for (stageInfo <- stageInfos) {
+      for (rddinfo <- stageInfo.rddInfos) {
+        for (rddMap <- sc.refDistance.keys) {
+          if (rddMap == rddinfo.id) {
+            sc.refDistance(rddMap) = sc.refDistance(rddMap) :+ stageInfo.stageId
+          }
+        }
+      }
+    }
+    blockManagerMaster.broadcastRefDistance(sc.refDistance)
+  }
+
+  def parseDAGToCandidateRDDs(rdd: RDD[_], jobId: Int): Unit = {
+    sc.jobIdToFinalRDD(jobId) = rdd
+    if (jobId > 0) {
+      var jobPrev = jobId - 1
+      if (sc.jobIdToFinalRDD.getOrElse(jobPrev, None) == None) {
+        while (sc.jobIdToFinalRDD.getOrElse(jobPrev, None) == None) {
+          jobPrev -= 1
+        }
+      }
+      parseTotalFound(sc.jobIdToFinalRDD(jobPrev))
+    }
+    parseTotalFound(rdd)
+    parseCandidateRDDs()
+    if (jobId > 0) {
+      for ((candidateRDD, _) <- sc.rddChildren) {
+        checkForCurrentJobOnly(candidateRDD, rdd)
+      }
+      // uncache/delete cached RDD that not use again in the next job
+      for (cachedRdd <- sc.cachedRDDs) {
+        var found = false
+        for (rdd <- sc.rddChildren.keys) {
+          if (rdd.id == cachedRdd.id) {
+            found = true
+          }
+        }
+        if (!found) {
+          cachedRdd.unpersist()
+          sc.refDistance.remove(cachedRdd.id)
+          sc.cachedRDDs = sc.cachedRDDs.filter(_ != cachedRdd)
+        }
+      }
+    }
+    sc.rddChildren.foreach {
+      case (rdd, _) =>
+        if (!sc.cachedRDDs.contains(rdd)) {
+          sc.refDistance(rdd.id) = Seq[Int]()
+          sc.cachedRDDs = sc.cachedRDDs :+ rdd
+          try {
+            rdd.persist(StorageLevel.MEMORY_ONLY)
+          } catch {
+            case e: Throwable =>
+              logInfo("RDD " + rdd.id + " already cached in job " + jobId)
+          }
+        }
+    }
+  }
+  private def parseTotalFound(rdd: RDD[_]): Unit = {
+    val len = rdd.dependencies.length
+    len match {
+      case 0 => return
+      case _ =>
+        rdd.dependencies.foreach {
+          d =>
+            val parentRDD = d.rdd
+            if (!sc.rddChildren.contains(parentRDD)) {
+              sc.rddChildren(parentRDD) = Seq[Int](rdd.id)
+            } else if (!(sc.rddChildren(parentRDD) contains rdd.id)) {
+              sc.rddChildren(parentRDD) = sc.rddChildren(parentRDD) :+ rdd.id
+            }
+            // Recursion
+            parseTotalFound(d.rdd)
+        }
+    }
+  }
+  private def checkForCurrentJobOnly(candidateRDD: RDD[_], rddJob: RDD[_]): Unit = {
+    val len = rddJob.dependencies.length
+    len match {
+      case 0 =>
+        sc.rddChildren.remove(candidateRDD)
+        return
+      case _ =>
+        if (candidateRDD == rddJob) {
+          return
+        }
+        rddJob.dependencies.foreach {
+          d =>
+            if (candidateRDD == rddJob || candidateRDD == d.rdd) {
+              return
+            }
+            // Recursion
+            checkForCurrentJobOnly(candidateRDD, d.rdd)
+        }
+    }
+  }
+  private def parseCandidateRDDs(): Unit = {
+    val tossed = sc.rddChildren.filter({
+      case (_, v) => v.length < 2
+    })
+    tossed.foreach({
+      case (k, _) => sc.rddChildren -= k
+    })
+  }
+  // instrument code end
+
   private[scheduler] def handleJobSubmitted(jobId: Int,
       finalRDD: RDD[_],
       func: (TaskContext, Iterator[_]) => _,
@@ -1239,6 +1347,10 @@ private[spark] class DAGScheduler(
     finalStage.setActiveJob(job)
     val stageIds = jobIdToStageIds(jobId).toArray
     val stageInfos = stageIds.flatMap(id => stageIdToStage.get(id).map(_.latestInfo))
+    // instrument code
+    parseDAGToCandidateRDDs(finalRDD, jobId)
+    parseRefDistance(stageInfos, jobId)
+    // instrument code end
     listenerBus.post(
       SparkListenerJobStart(job.jobId, jobSubmissionTime, stageInfos,
         Utils.cloneProperties(properties)))

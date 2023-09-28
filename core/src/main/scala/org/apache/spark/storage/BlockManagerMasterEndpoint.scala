@@ -136,6 +136,12 @@ class BlockManagerMasterEndpoint(
         handleResult(updateBlockInfo(blockManagerId, blockId, storageLevel, deserializedSize, size))
       }
 
+    // instrument code
+    case RefDistanceBroadcast(refDistance) =>
+      broadcastRefDistance(refDistance)
+      context.reply(true)
+    // instrument code end
+
     case GetLocations(blockId) =>
       context.reply(getLocations(blockId))
 
@@ -685,6 +691,15 @@ class BlockManagerMasterEndpoint(
     }
     true
   }
+
+  // instrument code
+  private def broadcastRefDistance(refDistance: mutable.HashMap[Int, Seq[Int]]) : Unit = {
+    val managers = blockManagerInfo.values
+    for (manager <- managers) {
+      manager.storageEndpoint.ask[Unit](RefDistanceBroadcast(refDistance))
+    }
+  }
+  // instrument code end
 
   private def getLocations(blockId: BlockId): Seq[BlockManagerId] = {
     if (blockLocations.containsKey(blockId)) blockLocations.get(blockId).toSeq else Seq.empty

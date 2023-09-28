@@ -19,6 +19,7 @@ package org.apache.spark.storage
 
 import scala.collection.generic.CanBuildFrom
 import scala.collection.immutable.Iterable
+import scala.collection.mutable.HashMap
 import scala.concurrent.Future
 
 import org.apache.spark.{SparkConf, SparkException}
@@ -170,6 +171,12 @@ class BlockManagerMaster(
   def removeBlock(blockId: BlockId): Unit = {
     driverEndpoint.askSync[Boolean](RemoveBlock(blockId))
   }
+
+  // instrument code
+  def broadcastRefDistance(refDistance: HashMap[Int, Seq[Int]]): Unit = {
+    driverEndpoint.askSync[Boolean](RefDistanceBroadcast(refDistance))
+  }
+  // instrument code end
 
   /** Remove all blocks belonging to the given RDD. */
   def removeRdd(rddId: Int, blocking: Boolean): Unit = {
