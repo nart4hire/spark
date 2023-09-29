@@ -17,6 +17,7 @@
 
 package org.apache.spark.storage
 
+import scala.collection.mutable
 import scala.collection.generic.CanBuildFrom
 import scala.collection.immutable.Iterable
 import scala.concurrent.Future
@@ -171,6 +172,18 @@ class BlockManagerMaster(
     driverEndpoint.askSync[Boolean](RemoveBlock(blockId))
   }
 
+  // instrument code
+  def broadcastRefCount(jobId: Int, partitionCount: Int, refCountByJob: mutable.HashMap[Int, Int])
+    : Unit = {
+    logInfo("ref count brodcasted")
+    driverEndpoint.askSync[Boolean](RefCountBroadcast(jobId, partitionCount, refCountByJob))
+  }
+
+  def broadcastJobDone(jobId: Int): Unit = {
+    driverEndpoint.askSync[Unit](JobFinishedBroadcast(jobId))
+  }
+  // instrument code end
+
   /** Remove all blocks belonging to the given RDD. */
   def removeRdd(rddId: Int, blocking: Boolean): Unit = {
     val future = driverEndpoint.askSync[Future[Seq[Int]]](RemoveRdd(rddId))
@@ -275,6 +288,14 @@ class BlockManagerMaster(
     val msg = GetMatchingBlockIds(filter, askStorageEndpoints)
     val future = driverEndpoint.askSync[Future[Seq[BlockId]]](msg)
     timeout.awaitResult(future)
+  }
+
+  /**
+   * Find out if the executor has cached blocks. This method does not consider broadcast blocks,
+   * since they are not reported the master.
+   */
+  def hasCachedBlocks(executorId: String): Boolean = {
+    driverEndpoint.askSync[Boolean](HasCachedBlocks(executorId))
   }
 
   /** Stop the driver endpoint, called only on the Spark driver node */

@@ -22,6 +22,7 @@ import java.lang.management.ManagementFactory
 import java.nio.ByteBuffer
 import java.util.Properties
 
+import scala.collection.mutable
 import org.apache.spark._
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
@@ -71,6 +72,57 @@ private[spark] class ResultTask[T, U](
   @transient private[this] val preferredLocs: Seq[TaskLocation] = {
     if (locs == null) Nil else locs.distinct
   }
+
+  // instrument code
+  def calculateTrueTime(finalRdd: RDD[_]): mutable.HashMap[Int, Long] = {
+    val result = new mutable.HashMap[Int, Long]()
+    val toVisit = new mutable.Queue[RDD[_]]()
+    val dependenciesToCalculate = new mutable.Stack[RDD[_]]()
+    var rdd = finalRdd
+    toVisit.enqueue(rdd)
+    while (toVisit.nonEmpty) {
+      rdd = toVisit.dequeue()
+      dependenciesToCalculate.push(rdd)
+      for (depRdd <- rdd.dependencies) {
+        if (depRdd.rdd != null) {
+          if (!dependenciesToCalculate.contains(depRdd.rdd)) {
+            dependenciesToCalculate.push(depRdd.rdd)
+            toVisit.enqueue(depRdd.rdd)
+          }
+        }
+      }
+    }
+    while (dependenciesToCalculate.nonEmpty) {
+      rdd = dependenciesToCalculate.pop()
+      if (rdd.partitionCost != -1) {
+      }
+      else if (rdd.dependencies.isEmpty) {
+        rdd.partitionCost = rdd.timestampEnd - rdd.timestampStart
+        result.put(rdd.id, rdd.partitionCost)
+      }
+      // val startTimeSet: mutable.Set[Long] = mutable.Set[Long](rdd.timestampStart)
+      var startTime: Long = rdd.timestampStart
+      for (depRdd <- rdd.dependencies) {
+        if (depRdd.rdd != null) {
+          // startTimeSet.add(depRdd.rdd.timestampEnd)
+          if (depRdd.rdd.timestampEnd > startTime) {
+            startTime = depRdd.rdd.timestampEnd
+          }
+        }
+      }
+      // val startTime = startTimeSet.max
+      if (startTime > rdd.timestampEnd) {
+        rdd.partitionCost = 0
+        result.put(rdd.id, rdd.partitionCost)
+      }
+      else {
+        rdd.partitionCost = rdd.timestampEnd - startTime
+        result.put(rdd.id, rdd.partitionCost)
+      }
+    }
+    result
+  }
+  // instrument code end
 
   override def runTask(context: TaskContext): U = {
     // Deserialize the RDD and the func using the broadcast variables.

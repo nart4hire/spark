@@ -83,6 +83,18 @@ abstract class RDD[T: ClassTag](
     @transient private var _sc: SparkContext,
     @transient private var deps: Seq[Dependency[_]]
   ) extends Serializable with Logging {
+  // instrument code
+  var timestampStart: Long = -1
+  var timestampEnd: Long = -1
+  // var partitionIdtoCostWithDep: Long = -1
+  var partitionCost: Long = -1
+  // var pastPartitionCost = new mutable.HashMap[Int, Long]
+  // key = partition id, value.key = rdd id, value.value = time
+  var dependencyCount = 0
+  def setDependencyCount(d: Int): Unit = {
+    dependencyCount = d
+  }
+  // instrument code end
 
   if (classOf[RDD[_]].isAssignableFrom(elementClassTag.runtimeClass)) {
     // This is a warning instead of an exception in order to avoid breaking user programs that

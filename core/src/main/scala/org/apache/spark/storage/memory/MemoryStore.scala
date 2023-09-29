@@ -93,6 +93,19 @@ private[spark] class MemoryStore(
 
   private val entries = new LinkedHashMap[BlockId, MemoryEntry[_]](32, 0.75f, true)
 
+  // instrument code
+
+  // private val weights = new mutable.HashMap[String, WholeBlockId]()
+  private val keyToBlockId = new mutable.HashMap[String, BlockId]()
+  // key = rdd id, value = ref count
+  private var refCount = new mutable.HashMap[Int, Int]()
+
+  private val computationCost = new mutable.HashMap[Tuple2[Int, Int], Long]()
+  // key = [rddId, partitionId]
+  private val pastRefInfo = new mutable.HashMap[Int, mutable.HashMap[Int, Int]]()
+
+  // instrument code end
+
   // A mapping from taskAttemptId to amount of memory used for unrolling a block (in bytes)
   // All accesses of this map are assumed to have manually synchronized on `memoryManager`
   private val onHeapUnrollMemoryMap = mutable.HashMap[Long, Long]()
@@ -134,6 +147,98 @@ private[spark] class MemoryStore(
     }
   }
 
+// instrument code
+  def updateRef(jobId: Int, partitionCount: Int, refCountByJob: mutable.HashMap[Int, Int]): Unit = {
+    refCount.synchronized {
+      refCount = refCountByJob.clone()
+    }
+  }
+
+  def updateCost(partitionId: Int, map: mutable.HashMap[Int, Long]): Unit = {
+    val iterator = map.iterator
+    val curTime = System.currentTimeMillis()
+    for (item <- iterator) {
+      computationCost.synchronized {
+        if (!computationCost.contains((item._1, partitionId))) {
+          computationCost.put((item._1, partitionId), item._2)
+        }
+      }
+      calculateWeight(partitionId, item._1)
+    }
+  }
+
+  def calculateWeight(partitionId: Int, rddid: Int): Unit = {
+    // I decided to update weight here instead of doing so in another function
+    val blockId = keyToBlockId.get(rddid.toString + "_" + partitionId.toString)
+    blockId match {
+      case None =>
+
+      case Some(x) =>
+        val size = getSize(x).toDouble
+        val cost = computationCost.synchronized {
+          computationCost.get((rddid, partitionId)) match {
+            case Some(x) =>
+              x.toDouble
+            case None =>
+              0.0
+          }
+        }
+        val ref: Double = refCount.synchronized {
+          refCount.get(rddid) match {
+            case Some(x) =>
+              x.toDouble
+            case None =>
+              0.0
+          }
+        }
+        val pastmod = pastRefInfo.synchronized {
+          var pastCount = 0
+          for (item <- pastRefInfo) {
+            if (item._2.contains(rddid)) {
+              pastCount += 1
+            }
+          }
+          if (pastRefInfo.size == 0) {
+            1.toDouble
+          }
+          else {
+            1.toDouble + (pastCount.toDouble / pastRefInfo.size.toDouble)
+          }
+        }
+        val inMem = entries.synchronized {
+          entries.get(x).memoryMode match {
+            case MemoryMode.ON_HEAP =>
+              1.toDouble
+            case _ =>
+              0.toDouble
+          }
+        }
+        val weight = (inMem * cost * ref * pastmod) / size
+        x.updateWeight(weight)
+        keyToBlockId.update(rddid.toString + "_" + partitionId.toString, x)
+    }
+  }
+
+  def putOrUpdateBlock(id: String, partition: BlockId): Unit = {
+    keyToBlockId.synchronized {
+      if (id.split("_")(0) != "rdd") {
+        return
+      }
+
+      if (entries.get(partition).memoryMode != MemoryMode.ON_HEAP) {
+        partition.updateWeight(0)
+      }
+      keyToBlockId.put(id.split("_")(1) + "_" + id.split("_")(2), partition)
+    }
+  }
+
+  def decreaseRefCount(jobId: Int): Unit = {
+    pastRefInfo.synchronized {
+      pastRefInfo.put(jobId, refCount)
+    }
+  }
+  // instrument code end
+
   /**
    * Use `size` to test if there is enough space in MemoryStore. If so, create the ByteBuffer and
    * put it into MemoryStore. Otherwise, the ByteBuffer won't be created.
@@ -155,6 +260,11 @@ private[spark] class MemoryStore(
       val entry = new SerializedMemoryEntry[T](bytes, memoryMode, implicitly[ClassTag[T]])
       entries.synchronized {
         entries.put(blockId, entry)
+
+        // instrument code
+        putOrUpdateBlock(blockId.name, blockId)
+        // instrument code end
+
       }
       logInfo("Block %s stored as bytes in memory (estimated size %s, free %s)".format(
         blockId, Utils.bytesToString(size), Utils.bytesToString(maxMemory - blocksMemoryUsed)))
@@ -264,6 +374,11 @@ private[spark] class MemoryStore(
 
         entries.synchronized {
           entries.put(blockId, entry)
+
+          // instrument code
+          putOrUpdateBlock(blockId.name, blockId)
+          // instrument code end
+
         }
 
         logInfo("Block %s stored as values in memory (estimated size %s, free %s)".format(blockId,
@@ -413,6 +528,15 @@ private[spark] class MemoryStore(
       memoryManager.releaseStorageMemory(entry.size, entry.memoryMode)
       logDebug(s"Block $blockId of size ${entry.size} dropped " +
         s"from memory (free ${maxMemory - blocksMemoryUsed})")
+
+      // instrument code
+      if (blockId.name.split("_")(0) == "rdd") {
+        keyToBlockId.synchronized {
+          keyToBlockId.remove(blockId.name.split("_")(1) + "_" + blockId.name.split("_")(2))
+        }
+      }
+      // instrument code end
+
       true
     } else {
       false
@@ -464,8 +588,15 @@ private[spark] class MemoryStore(
       // (because of getValue or getBytes) while traversing the iterator, as that
       // can lead to exceptions.
       entries.synchronized {
+        // modification code
+        /* replace:
         val iterator = entries.entrySet().iterator()
+           for: */ 
+        val iterator = keyToBlockId.toList.sortBy(_._2.weight).iterator
+        // modification code end
         while (freedMemory < space && iterator.hasNext) {
+          // modification code
+          /* replace:
           val pair = iterator.next()
           val blockId = pair.getKey
           val entry = pair.getValue
@@ -478,6 +609,19 @@ private[spark] class MemoryStore(
               freedMemory += entry.size
             }
           }
+             for: */
+
+          val pair = iterator.next()
+          val partitionId = pair._1
+          val blockId = pair._2
+          val entry = entries.get(blockId)
+          if (blockIsEvictable(blockId, entry)) {
+            if (blockInfoManager.lockForWriting(blockId, blocking = false).isDefined) {
+              selectedBlocks += blockId
+              freedMemory += entry.size
+            }
+          }
+          // modification code end
         }
       }
 

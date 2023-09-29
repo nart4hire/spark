@@ -48,6 +48,15 @@ class BlockManagerStorageEndpoint(
         true
       }
 
+    // instrument code
+    case RefCountBroadcast(jobId, partitionCount, refCountByJob) =>
+      logInfo("ref broadcast received")
+      blockManager.memoryStore.updateRef(jobId, partitionCount, refCountByJob)
+
+    case JobFinishedBroadcast(jobId) =>
+      blockManager.memoryStore.decreaseRefCount(jobId)
+    // instrument code end
+
     case RemoveRdd(rddId) =>
       doAsync[Int]("removing RDD " + rddId, context) {
         blockManager.removeRdd(rddId)

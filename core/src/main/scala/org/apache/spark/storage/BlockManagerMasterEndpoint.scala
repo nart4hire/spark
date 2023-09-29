@@ -112,11 +112,51 @@ class BlockManagerMasterEndpoint(
   private lazy val driverEndpoint =
     RpcUtils.makeDriverRef(CoarseGrainedSchedulerBackend.ENDPOINT_NAME, conf, rpcEnv)
 
+  // instrument code
+  def broadcastRef(jobId: Int, partitionCount: Int, refCountByJob: mutable.HashMap[Int, Int])
+    : Unit = {
+    val managers = blockManagerInfo.toList
+    for (manager <- managers) {
+      logInfo("endpoint broadcast ref")
+      manager._2.storageEndpoint.ask[Unit](RefCountBroadcast(jobId, partitionCount, refCountByJob))
+    }
+  }
+
+  def broadcastJobDone(jobId: Int): Unit = {
+    val managers = blockManagerInfo.toList
+    for (manager <- managers) {
+      manager._2.storageEndpoint.ask[Unit](JobFinishedBroadcast(jobId))
+    }
+  }
+  // instrument code end
+
   override def receiveAndReply(context: RpcCallContext): PartialFunction[Any, Unit] = {
     case RegisterBlockManager(
       id, localDirs, maxOnHeapMemSize, maxOffHeapMemSize, endpoint, isReRegister) =>
       context.reply(
         register(id, localDirs, maxOnHeapMemSize, maxOffHeapMemSize, endpoint, isReRegister))
+
+    // instrument code
+    case RefCountBroadcast(jobId, partitionCount, refCountByJob) =>
+      broadcastRef(jobId, partitionCount, refCountByJob)
+      context.reply(true)
+
+    case JobFinishedBroadcast(jobId) =>
+      broadcastJobDone(jobId)
+      context.reply(null)
+    // instrument code end
+
+    case HasCachedBlocks(executorId) =>
+      blockManagerIdByExecutor.get(executorId) match {
+        case Some(bm) =>
+          if (blockManagerInfo.contains(bm)) {
+            val bmInfo = blockManagerInfo(bm)
+            context.reply(bmInfo.cachedBlocks.nonEmpty)
+          } else {
+            context.reply(false)
+          }
+        case None => context.reply(false)
+      }
 
     case _updateBlockInfo @
         UpdateBlockInfo(blockManagerId, blockId, storageLevel, deserializedSize, size) =>
@@ -670,16 +710,7 @@ class BlockManagerMasterEndpoint(
       locations.remove(blockManagerId)
     }
 
-    if (blockId.isRDD && storageLevel.useDisk && externalShuffleServiceRddFetchEnabled) {
-      val externalShuffleServiceId = externalShuffleServiceIdOnHost(blockManagerId)
-      if (storageLevel.isValid) {
-        locations.add(externalShuffleServiceId)
-      } else {
-        locations.remove(externalShuffleServiceId)
-      }
-    }
-
-    // Remove the block from master tracking if it has been removed on all endpoints.
+    // Remove the block from master tracking if it has been removed on all slaves.
     if (locations.size == 0) {
       blockLocations.remove(blockId)
     }
@@ -845,6 +876,9 @@ private[spark] class BlockManagerInfo(
   // Mapping from block id to its status.
   private val _blocks = new JHashMap[BlockId, BlockStatus]
 
+  // Cached blocks held by this BlockManager. This does not include broadcast blocks.
+  private val _cachedBlocks = new mutable.HashSet[BlockId]
+
   def getStatus(blockId: BlockId): Option[BlockStatus] = Option(_blocks.get(blockId))
 
   def updateLastSeenMs(): Unit = {
@@ -879,6 +913,7 @@ private[spark] class BlockManagerInfo(
     if (storageLevel.isValid) {
       /* isValid means it is either stored in-memory or on-disk.
        * The memSize here indicates the data size in or dropped from memory,
+       * externalBlockStoreSize here indicates the data size in or dropped from externalBlockStore,
        * and the diskSize here indicates the data size in or dropped to disk.
        * They can be both larger than 0, when a block is dropped from memory to disk.
        * Therefore, a safe way to set BlockStatus is to set its info in accurate modes. */
@@ -949,6 +984,9 @@ private[spark] class BlockManagerInfo(
   def lastSeenMs: Long = _lastSeenMs
 
   def blocks: JHashMap[BlockId, BlockStatus] = _blocks
+
+  // This does not include broadcast blocks.
+  def cachedBlocks: collection.Set[BlockId] = _cachedBlocks
 
   override def toString: String = "BlockManagerInfo " + timeMs + " " + _remainingMem
 
