@@ -32,7 +32,7 @@ private[spark] object BlockManagerMessages {
 
   // instrument code
   case class RefCountBroadcast(jobId: Int, partitionCount: Int,
-                               refCountByJob: mutable.HashMap[Int, Int]) extends ToBlockManagerMasterStorageEndpoint
+    refCountByJob: mutable.HashMap[Int, Int]) extends ToBlockManagerMasterStorageEndpoint
 
   case class JobFinishedBroadcast(jobId: Int) extends ToBlockManagerMasterStorageEndpoint
   // instrument code end

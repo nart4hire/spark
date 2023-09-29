@@ -591,7 +591,7 @@ private[spark] class MemoryStore(
         // modification code
         /* replace:
         val iterator = entries.entrySet().iterator()
-           for: */ 
+           for: */
         val iterator = keyToBlockId.toList.sortBy(_._2.weight).iterator
         // modification code end
         while (freedMemory < space && iterator.hasNext) {

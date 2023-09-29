@@ -17,9 +17,9 @@
 
 package org.apache.spark.storage
 
-import scala.collection.mutable
 import scala.collection.generic.CanBuildFrom
 import scala.collection.immutable.Iterable
+import scala.collection.mutable
 import scala.concurrent.Future
 
 import org.apache.spark.{SparkConf, SparkException}

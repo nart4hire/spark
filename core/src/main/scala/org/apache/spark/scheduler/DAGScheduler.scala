@@ -25,7 +25,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import scala.annotation.tailrec
 import scala.collection.Map
 import scala.collection.mutable
-import scala.collection.mutable.{HashMap, HashSet, Stack, Queue, ListBuffer}
+import scala.collection.mutable.{HashMap, HashSet, ListBuffer, Queue, Stack}
 import scala.concurrent.duration._
 import scala.util.control.NonFatal
 
