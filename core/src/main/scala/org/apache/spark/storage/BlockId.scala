@@ -45,6 +45,7 @@ sealed abstract class BlockId {
   }
   def isShuffleChunk: Boolean = isInstanceOf[ShuffleBlockChunkId]
   def isBroadcast: Boolean = isInstanceOf[BroadcastBlockId]
+
   // mod
   var weight: Double = 0
   def updateWeight(newWeight: Double): Unit = {

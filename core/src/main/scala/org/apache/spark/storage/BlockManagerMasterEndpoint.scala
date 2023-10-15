@@ -710,7 +710,16 @@ class BlockManagerMasterEndpoint(
       locations.remove(blockManagerId)
     }
 
-    // Remove the block from master tracking if it has been removed on all slaves.
+    if (blockId.isRDD && storageLevel.useDisk && externalShuffleServiceRddFetchEnabled) {
+      val externalShuffleServiceId = externalShuffleServiceIdOnHost(blockManagerId)
+      if (storageLevel.isValid) {
+        locations.add(externalShuffleServiceId)
+      } else {
+        locations.remove(externalShuffleServiceId)
+      }
+    }
+
+    // Remove the block from master tracking if it has been removed on all endpoints.
     if (locations.size == 0) {
       blockLocations.remove(blockId)
     }

@@ -140,6 +140,11 @@ private[spark] class ResultTask[T, U](
       threadMXBean.getCurrentThreadCpuTime - deserializeStartCpuTime
     } else 0L
 
+    // instrument code
+    val map = calculateTrueTime(rdd)
+    SparkEnv.get.blockManager.memoryStore.updateCost(partition.index, map)
+    // instrument code end
+
     func(context, rdd.iterator(partition, context))
   }
 

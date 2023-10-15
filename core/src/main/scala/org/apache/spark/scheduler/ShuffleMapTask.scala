@@ -149,6 +149,12 @@ private[spark] class ShuffleMapTask(
     val mapId = if (SparkEnv.get.conf.get(config.SHUFFLE_USE_OLD_FETCH_PROTOCOL)) {
       partitionId
     } else context.taskAttemptId()
+
+    // instrument code
+    val map = calculateTrueTime(rdd)
+    SparkEnv.get.blockManager.memoryStore.updateCost(partition.index, map)
+    // instrument code end
+
     dep.shuffleWriterProcessor.write(rdd, dep, mapId, context, partition)
   }
 

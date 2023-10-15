@@ -83,6 +83,7 @@ abstract class RDD[T: ClassTag](
     @transient private var _sc: SparkContext,
     @transient private var deps: Seq[Dependency[_]]
   ) extends Serializable with Logging {
+
   // instrument code
   var timestampStart: Long = -1
   var timestampEnd: Long = -1

@@ -103,7 +103,6 @@ private[spark] class MemoryStore(
   private val computationCost = new mutable.HashMap[Tuple2[Int, Int], Long]()
   // key = [rddId, partitionId]
   private val pastRefInfo = new mutable.HashMap[Int, mutable.HashMap[Int, Int]]()
-
   // instrument code end
 
   // A mapping from taskAttemptId to amount of memory used for unrolling a block (in bytes)
