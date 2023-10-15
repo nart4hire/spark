@@ -383,7 +383,10 @@ abstract class RDD[T: ClassTag](
     if (isCheckpointedAndMaterialized) {
       firstParent[T].iterator(split, context)
     } else {
-      compute(split, context)
+      timestampStart = System.currentTimeMillis()
+      val result = compute(split, context)
+      timestampEnd = System.currentTimeMillis()
+      result
     }
   }
 
