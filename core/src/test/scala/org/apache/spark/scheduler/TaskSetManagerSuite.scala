@@ -187,7 +187,9 @@ class LargeTask(stageId: Int) extends Task[Array[Byte]](stageId, 0, 0) {
   val random = new Random(0)
   random.nextBytes(randomBuffer)
 
-  override def runTask(context: TaskContext): Array[Byte] = randomBuffer
+  // Modification: Change Function signature to accomodate RDD_id
+  override def runTask(context: TaskContext): (Array[Byte], Int) = (randomBuffer, 0)
+  // End of Modification
   override def preferredLocations: Seq[TaskLocation] = Seq[TaskLocation]()
 }
 
@@ -2246,10 +2248,14 @@ class TaskSetManagerSuite
 
 class FakeLongTasks(stageId: Int, partitionId: Int) extends FakeTask(stageId, partitionId) {
 
-  override def runTask(context: TaskContext): Int = {
+  // Modification: Change Function signature to accomodate RDD_id
+  override def runTask(context: TaskContext): (Int, Int) = {
+  // End of Modification
     while (true) {
       Thread.sleep(10000)
     }
-    0
+    // Modification: Change return value to accomodate Function signature
+    (0, 0)
+    // End of Modification
   }
 }

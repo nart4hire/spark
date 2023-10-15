@@ -33,7 +33,9 @@ class FakeTask(
   extends Task[Int](stageId, 0, partitionId, new Properties, serializedTaskMetrics,
     isBarrier = isBarrier) {
 
-  override def runTask(context: TaskContext): Int = 0
+  // Modification: Change Function signature to accomodate RDD_id
+  override def runTask(context: TaskContext): (Int, Int) = (0, 0)
+  // End of Modification
   override def preferredLocations: Seq[TaskLocation] = prefLocs
 }
 

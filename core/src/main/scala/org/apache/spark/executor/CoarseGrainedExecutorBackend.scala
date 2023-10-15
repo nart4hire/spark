@@ -270,6 +270,16 @@ private[spark] class CoarseGrainedExecutorBackend(
     }
   }
 
+  // Modification: Implementation of RPC
+  override def recomputeAlert(rddSignature: String, time: Long): Unit = {
+    val msg = RecomputeAlert(rddSignature, time)
+    driver match {
+      case Some(driverRef) => driverRef.send(msg)
+      case None => logWarning(s"Drop $msg because has not yet connected to driver")
+    }
+  }
+  // End of Modification
+
   /**
    * This function can be overloaded by other child classes to handle
    * executor exits differently. For e.g. when an executor goes down,

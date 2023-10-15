@@ -81,6 +81,14 @@ private[spark] class Executor(
   private val currentJars: HashMap[String, Long] = new HashMap[String, Long]()
   private val currentArchives: HashMap[String, Long] = new HashMap[String, Long]()
 
+  // Modification: A HashMap which has a key of an rdd partition signature which is
+  //               (rdd_id + partition_index) to an integer of how many times said
+  //               partition has been computed.
+  private val rddSignatureToComputationCount: HashMap[String, Int] = new HashMap[String, Int]() {
+    override def default(key: String) = 0
+  }
+  // End of Modification
+
   private val EMPTY_BYTE_BUFFER = ByteBuffer.wrap(new Array[Byte](0))
 
   private val conf = env.conf
@@ -497,14 +505,30 @@ private[spark] class Executor(
           threadMXBean.getCurrentThreadCpuTime
         } else 0L
         var threwException = true
+        // Modification: Added recompute flag and rdd_signature
+        var recomputed = false
+        var rddSignature = ""
+        // End of Modification
         val value = Utils.tryWithSafeFinally {
-          val res = task.run(
+          // Modification: Passed RDD.id back since getting it is too roundabout
+          //               (2 stage deserialization)
+          val (res, rdd_id) = task.run(
+          // Original:
+          // val res = task.run(
+          // End of Modification
             taskAttemptId = taskId,
             attemptNumber = taskDescription.attemptNumber,
             metricsSystem = env.metricsSystem,
             resources = taskDescription.resources,
             plugins = plugins)
           threwException = false
+          // Modification: Increment counter of hashmap and mark as recomputed if more than 1
+          rddSignature = s"${rdd_id}_${task.partitionId}"
+          rddSignatureToComputationCount(rddSignature) += 1
+          if (rddSignatureToComputationCount(rddSignature) > 1) {
+            recomputed = true
+          }
+          // End of Modification
           res
         } {
           val releasedLocks = env.blockManager.releaseAllLocksForTask(taskId)
@@ -640,6 +664,11 @@ private[spark] class Executor(
         setTaskFinishedAndClearInterruptStatus()
         plugins.foreach(_.onTaskSucceeded())
         execBackend.statusUpdate(taskId, TaskState.FINISHED, serializedResult)
+        // Modification: Send RPC to the Scheduler, its since its easier to parse in driver log
+        if (recomputed) {
+          execBackend.recomputeAlert(rddSignature, task.metrics.executorCpuTime)
+        }
+        // End of Modification
       } catch {
         case t: TaskKilledException =>
           logInfo(s"Executor killed $taskName, reason: ${t.reason}")

@@ -836,6 +836,12 @@ private[spark] class TaskSchedulerImpl(
     }
   }
 
+  // Modification: Print Recomputation info
+  def recomputeAlert(rddSignature: String, time: Long) {
+    logInfo(s"RDD ${rddSignature} was recomputed, it took ${time} nanoseconds")
+  }
+  // End of Modification
+
   /**
    * Update metrics for in-progress tasks and executor metrics, and let the master know that the
    * BlockManager is still alive. Return true if the driver knows about the given block manager.

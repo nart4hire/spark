@@ -72,7 +72,9 @@ private[spark] class ResultTask[T, U](
     if (locs == null) Nil else locs.distinct
   }
 
-  override def runTask(context: TaskContext): U = {
+  // Modification: Change function signature to accomodate RDD_id
+  override def runTask(context: TaskContext): (U, Int) = {
+  // End of Modification
     // Deserialize the RDD and the func using the broadcast variables.
     val threadMXBean = ManagementFactory.getThreadMXBean
     val deserializeStartTimeNs = System.nanoTime()
@@ -87,7 +89,9 @@ private[spark] class ResultTask[T, U](
       threadMXBean.getCurrentThreadCpuTime - deserializeStartCpuTime
     } else 0L
 
-    func(context, rdd.iterator(partition, context))
+    // Modification: Returns RDD_id
+    (func(context, rdd.iterator(partition, context)), rdd.id)
+    // End of Modification
   }
 
   // This is only callable on the driver side.

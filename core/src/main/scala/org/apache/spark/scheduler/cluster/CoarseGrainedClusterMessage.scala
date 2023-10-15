@@ -85,6 +85,13 @@ private[spark] object CoarseGrainedClusterMessages {
     }
   }
 
+  // Modification: Implementation of the alert class
+  case class RecomputeAlert(
+      rddSignature: String,
+      time: Long)
+    extends CoarseGrainedClusterMessage
+  // End of Modification
+
   // Internal messages in driver
   case object ReviveOffers extends CoarseGrainedClusterMessage
 

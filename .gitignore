@@ -108,6 +108,7 @@ spark-warehouse/
 
 # For SBT
 .jvmopts
+.sbtopts
 
 # For Node.js
 node_modules

@@ -226,7 +226,9 @@ class TaskContextSuite extends SparkFunSuite with BeforeAndAfter with LocalSpark
         taskMetrics)
       taskMetrics.registerAccumulator(acc1)
       taskMetrics.registerAccumulator(acc2)
-      override def runTask(tc: TaskContext): Int = 0
+      // Modification: Change Function signature to accomodate RDD_id
+      override def runTask(tc: TaskContext): (Int, Int) = (0, 0)
+      // End of Modification
     }
     // First, simulate task success. This should give us all the accumulators.
     val accumUpdates1 = task.collectAccumulatorUpdates(taskFailed = false)
@@ -248,7 +250,9 @@ class TaskContextSuite extends SparkFunSuite with BeforeAndAfter with LocalSpark
         SparkEnv.get.metricsSystem,
         taskMetrics)
       taskMetrics.incMemoryBytesSpilled(10)
-      override def runTask(tc: TaskContext): Int = 0
+      // Modification: Change Function signature to accomodate RDD_id
+      override def runTask(tc: TaskContext): (Int, Int) = (0, 0)
+      // End of Modification
     }
     val updatedAccums = task.collectAccumulatorUpdates()
     assert(updatedAccums.length == 2)

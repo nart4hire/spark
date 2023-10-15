@@ -27,7 +27,9 @@ import org.apache.spark.TaskContext
 private[spark] class NotSerializableFakeTask(myId: Int, stageId: Int)
   extends Task[Array[Byte]](stageId, 0, 0) {
 
-  override def runTask(context: TaskContext): Array[Byte] = Array.empty[Byte]
+  // Modification: Change Function signature to accomodate RDD_id
+  override def runTask(context: TaskContext): (Array[Byte], Int) = (Array.empty[Byte], 0)
+  // End of Modification
   override def preferredLocations: Seq[TaskLocation] = Seq[TaskLocation]()
 
   @throws(classOf[IOException])

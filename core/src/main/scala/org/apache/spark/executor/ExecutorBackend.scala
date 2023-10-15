@@ -26,5 +26,9 @@ import org.apache.spark.TaskState.TaskState
  */
 private[spark] trait ExecutorBackend {
   def statusUpdate(taskId: Long, state: TaskState, data: ByteBuffer): Unit
+
+  // Modification: Added an RPC to call into task scheduler for easier logging
+  def recomputeAlert(rddSignature: String, time: Long): Unit
+  // End of Modification
 }
 

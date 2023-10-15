@@ -74,7 +74,9 @@ private[spark] class ShuffleMapTask(
     if (locs == null) Nil else locs.distinct
   }
 
-  override def runTask(context: TaskContext): MapStatus = {
+  // Modification: Change function signature to accomodate RDD_id
+  override def runTask(context: TaskContext): (MapStatus, Int) = {
+  // End of Modification
     // Deserialize the RDD using the broadcast variable.
     val threadMXBean = ManagementFactory.getThreadMXBean
     val deserializeStartTimeNs = System.nanoTime()
@@ -96,7 +98,9 @@ private[spark] class ShuffleMapTask(
     val mapId = if (SparkEnv.get.conf.get(config.SHUFFLE_USE_OLD_FETCH_PROTOCOL)) {
       partitionId
     } else context.taskAttemptId()
-    dep.shuffleWriterProcessor.write(rdd, dep, mapId, context, partition)
+    // Modification: Returns RDD_id
+    (dep.shuffleWriterProcessor.write(rdd, dep, mapId, context, partition), rdd.id)
+    // End of Modification
   }
 
   override def preferredLocations: Seq[TaskLocation] = preferredLocs

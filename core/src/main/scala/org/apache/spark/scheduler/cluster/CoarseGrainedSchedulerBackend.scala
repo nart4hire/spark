@@ -167,6 +167,11 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
           }
         }
 
+      // Modification: Receive RPC
+      case RecomputeAlert(rddSignature, time) =>
+        scheduler.recomputeAlert(rddSignature, time)
+      // End of Modification
+
       case ReviveOffers =>
         makeOffers()
 
