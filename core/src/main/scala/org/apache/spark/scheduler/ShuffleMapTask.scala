@@ -151,11 +151,12 @@ private[spark] class ShuffleMapTask(
     } else context.taskAttemptId()
 
     // instrument code
+    val result = dep.shuffleWriterProcessor.write(rdd, dep, mapId, context, partition)
     val map = calculateTrueTime(rdd)
     SparkEnv.get.blockManager.memoryStore.updateCost(partition.index, map)
-    // instrument code end
 
-    dep.shuffleWriterProcessor.write(rdd, dep, mapId, context, partition)
+    result
+    // instrument code end
   }
 
   override def preferredLocations: Seq[TaskLocation] = preferredLocs

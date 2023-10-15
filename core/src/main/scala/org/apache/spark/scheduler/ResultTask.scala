@@ -141,11 +141,12 @@ private[spark] class ResultTask[T, U](
     } else 0L
 
     // instrument code
+    val result = func(context, rdd.iterator(partition, context))
     val map = calculateTrueTime(rdd)
     SparkEnv.get.blockManager.memoryStore.updateCost(partition.index, map)
-    // instrument code end
 
-    func(context, rdd.iterator(partition, context))
+    result
+    // instrument code end
   }
 
   // This is only callable on the driver side.
