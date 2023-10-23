@@ -291,13 +291,6 @@ class SparkContext(config: SparkConf) extends Logging {
   }
   def statusTracker: SparkStatusTracker = _statusTracker
 
-  // Modification: Keeps Track of RDD children and also Tracks RDDs while running job
-  private[spark] val rddChildren = {
-    val map: ConcurrentMap[RDD[_], Seq[Int]] = new MapMaker().makeMap[RDD[_], Seq[Int]]()
-    map.asScala
-  }
-  // End of Modification
-
   private[spark] def progressBar: Option[ConsoleProgressBar] = _progressBar
 
   private[spark] def ui: Option[SparkUI] = _ui
@@ -2204,53 +2197,6 @@ class SparkContext(config: SparkConf) extends Logging {
     )
   }
 
-  // Modification: Added DAG analysis
-  private def tallyChildren(rdd: RDD[_], root: Boolean = true): Unit = {
-    // Topmost parent guard
-    rdd.dependencies.length match {
-      case 0 => return
-      case _ =>
-        rdd.dependencies.foreach {
-          d =>
-          // Append children to map
-          val parentRDD = d.rdd
-          if (!rddChildren.contains(parentRDD)) {
-            rddChildren(parentRDD) = Seq[Int](rdd.id)
-          } else if (!(rddChildren(parentRDD) contains rdd.id)) {
-            rddChildren(parentRDD) = rddChildren(parentRDD) :+ rdd.id
-          }
-
-          // Recursion
-          tallyChildren(d.rdd, root = false)
-        }
-
-        if (root) {
-          logInfo("RDD Lineage: " + rddChildren.toString())
-        }
-    }
-  }
-
-  private def clearChildren(): Unit = {
-    rddChildren.clear()
-  }
-
-  private def cacheRDDs(): Unit = {
-    val tossed = rddChildren.filter({
-      case (_, v) => v.length < 2
-    })
-
-    tossed.foreach({
-      case (k, _) => rddChildren -= k
-    })
-
-    logInfo("RDDs to be Cached: " + rddChildren.keys.toString())
-
-    // rddChildren.foreach{
-    //   case (parent, _) => parent.persist_internal(StorageLevel.MEMORY_ONLY)
-    // }
-  }
-  // End of Modification
-
   /**
    * Run a function on a given set of partitions in an RDD and pass the results to the given
    * handler function. This is the main entry point for all actions in Spark.
@@ -2269,11 +2215,6 @@ class SparkContext(config: SparkConf) extends Logging {
     if (stopped.get()) {
       throw new IllegalStateException("SparkContext has been shutdown")
     }
-    // Modification: Added DAG Analysis
-    tallyChildren(rdd)
-    cacheRDDs()
-    clearChildren()
-    // End of Modification
     val callSite = getCallSite
     val cleanedFunc = clean(func)
     logInfo("Starting job: " + callSite.shortForm)
@@ -2284,7 +2225,7 @@ class SparkContext(config: SparkConf) extends Logging {
     progressBar.foreach(_.finishAll())
     rdd.doCheckpoint()
     // Modification: Added DAG Analysis
-    logInfo("Still Cached RDDs: " + persistentRdds.toString())
+    logInfo("Currently cached RDDs: " + persistentRdds.toString())
     // End of Modification
   }
 
