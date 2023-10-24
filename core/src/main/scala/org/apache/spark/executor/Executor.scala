@@ -590,6 +590,11 @@ private[spark] class Executor(
         task.metrics.setResultSerializationTime(TimeUnit.NANOSECONDS.toMillis(
           afterSerializationNs - beforeSerializationNs))
 
+        // Modification: Execution time has been calculated, send it to the memorystore
+        env.blockManager.memoryStore.updatePartitionWeight(rddSignature,
+                                                           task.metrics.executorRunTime)
+        // End of Modification
+
         // Expose task metrics using the Dropwizard metrics system.
         // Update task metrics counters
         executorSource.METRIC_CPU_TIME.inc(task.metrics.executorCpuTime)

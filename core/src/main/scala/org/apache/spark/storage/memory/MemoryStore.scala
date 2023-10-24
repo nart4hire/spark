@@ -91,7 +91,18 @@ private[spark] class MemoryStore(
   // Note: all changes to memory allocations, notably putting blocks, evicting blocks, and
   // acquiring or releasing unroll memory, must be synchronized on `memoryManager`!
 
-  private val entries = new LinkedHashMap[BlockId, MemoryEntry[_]](32, 0.75f, true)
+  // Modification: Removed access-order since it is not required anymore
+  //               Also Added a map between RDD signature and Block
+  //               and data structures for reference data
+  private val entries = new LinkedHashMap[BlockId, MemoryEntry[_]](32, 0.75f)
+  private val rddSignatureToBlockId = new mutable.HashMap[String, BlockId]()
+  private var refCount = new mutable.HashMap[Int, Int]()
+  private var pastRef = new mutable.HashMap[Int, Int]()
+  private var distance = new mutable.HashMap[Int, Int]()
+  private var latestJobId: Int = 0
+  // Original:
+  // private val entries = new LinkedHashMap[BlockId, MemoryEntry[_]](32, 0.75f, true)
+  // End of Modification
 
   // A mapping from taskAttemptId to amount of memory used for unrolling a block (in bytes)
   // All accesses of this map are assumed to have manually synchronized on `memoryManager`
@@ -134,6 +145,68 @@ private[spark] class MemoryStore(
     }
   }
 
+  // Modification: Added Weight Calculation, should be called from the Executor
+  //               Also added RPC endpoint
+  def updateReferenceData(refCountUpdated: mutable.HashMap[Int, Int],
+                          pastRefUpdated: mutable.HashMap[Int, Int],
+                          distanceUpdated: mutable.HashMap[Int, Int]): Unit = {
+    refCount.synchronized {
+      refCount = refCountUpdated.clone()
+    }
+    pastRef.synchronized {
+      pastRef = pastRefUpdated.clone()
+    }
+    distance.synchronized {
+      distance = distanceUpdated.clone()
+    }
+  }
+
+  def updatePartitionWeight(rddSignature: String,
+                            computeTime: Long,
+                            jobId: Int = latestJobId): Unit = {
+    rddSignatureToBlockId.synchronized {
+      rddSignatureToBlockId.get(rddSignature) match {
+        case Some(blockId) =>
+          entries.synchronized {
+            entries.get(blockId).memoryMode match {
+              case MemoryMode.ON_HEAP =>
+                val rddId = getRddId(blockId).get
+                val scaledSize = math.min(
+                  8.0, // Maximum value: (if scaledSize > 8, set to 8)
+                  math.max(
+                    1.0, // Minimum value: (if scaledSize < 1, set to 1)
+                    // log base 16 of size, then add 3.5
+                    (scaleByLog(16.0, getSize(blockId)) + 3.5)))
+                val scaledComputeTime = math.min(
+                  8.0, // Maximum value: (if scaledComputeTime > 8, set to 8)
+                  math.max(
+                    1.0, // Minimum value: (if scaledComputeTime < 1, set to 1)
+                    // log base 10 of size, then add 4.0
+                    (math.log10(computeTime) + 4.0)))
+                val thisRefCount = refCount(rddId).toDouble
+                val thisPastRef = (pastRef(rddId) - thisRefCount).toDouble
+                val thisDistance = math.max((jobId - distance(rddId)).toDouble, 1.0)
+                // Take whichever is larger between refcount and heuristic weight
+                blockId.weight = math.max(thisRefCount,
+                                          (scaledComputeTime * thisPastRef) /
+                                          (scaledSize * thisDistance))
+              case _ =>
+                // Do nothing if it is not on heap, probably went straight to disc
+            }
+          }
+        case None =>
+          // Should never reach here as getRddSignature has the same string builder
+          // Just log an error and move on
+          logError(s"Couldn't find partition with signature ${rddSignature}")
+      }
+    }
+  }
+
+  def scaleByLog(base: Double, num: Double): Double = {
+    math.log10(num) / math.log10(base)
+  }
+  // End of Modification
+
   /**
    * Use `size` to test if there is enough space in MemoryStore. If so, create the ByteBuffer and
    * put it into MemoryStore. Otherwise, the ByteBuffer won't be created.
@@ -154,6 +227,12 @@ private[spark] class MemoryStore(
       assert(bytes.size == size)
       val entry = new SerializedMemoryEntry[T](bytes, memoryMode, implicitly[ClassTag[T]])
       entries.synchronized {
+        // Modification: Add Block to name map, for ease of updating
+        // We only want RDD blocks
+        getRddSignature(blockId).map(signature => rddSignatureToBlockId.synchronized {
+          rddSignatureToBlockId(signature) = blockId
+        })
+        // End of Modification
         entries.put(blockId, entry)
       }
       logInfo("Block %s stored as bytes in memory (estimated size %s, free %s)".format(
@@ -263,6 +342,12 @@ private[spark] class MemoryStore(
         }
 
         entries.synchronized {
+          // Modification: Add Block to name map, for ease of updating
+          // We only want RDD blocks
+          getRddSignature(blockId).map(signature => rddSignatureToBlockId.synchronized {
+            rddSignatureToBlockId(signature) = blockId
+          })
+          // End of Modification
           entries.put(blockId, entry)
         }
 
@@ -406,6 +491,12 @@ private[spark] class MemoryStore(
 
   def remove(blockId: BlockId): Boolean = memoryManager.synchronized {
     val entry = entries.synchronized {
+      // Modification: Remove block from name map
+      // We only want RDD blocks, also void the result as it is not needed
+      val _ = getRddSignature(blockId).map(signature => rddSignatureToBlockId.synchronized {
+        rddSignatureToBlockId.remove(signature)
+      })
+      // End of Modification
       entries.remove(blockId)
     }
     if (entry != null) {
@@ -437,6 +528,12 @@ private[spark] class MemoryStore(
     blockId.asRDDId.map(_.rddId)
   }
 
+  // Modification: Add Get RDD Signature From block
+  private def getRddSignature(blockId: BlockId): Option[String] = {
+    blockId.asRDDId.map(rddBlock => s"${rddBlock.rddId}_${rddBlock.splitIndex}")
+  }
+  // End of Modification
+
   /**
    * Try to evict blocks to free up a given amount of space to store a particular block.
    * Can fail if either the block is bigger than our memory or it would require replacing
@@ -464,11 +561,17 @@ private[spark] class MemoryStore(
       // (because of getValue or getBytes) while traversing the iterator, as that
       // can lead to exceptions.
       entries.synchronized {
-        val iterator = entries.entrySet().iterator()
+        // Modification: Sort by least weight
+        val iterator = entries.asScala.toList.sortBy(_._1.weight).iterator
+        // Original:
+        // val iterator = entries.entrySet().iterator()
+        // End of Modification
         while (freedMemory < space && iterator.hasNext) {
           val pair = iterator.next()
-          val blockId = pair.getKey
-          val entry = pair.getValue
+          // Modification: Changed to use Scala Syntax from Java as we now use a Scala iterator
+          val blockId = pair._1
+          val entry = pair._2
+          // End of Modification
           if (blockIsEvictable(blockId, entry)) {
             // We don't want to evict blocks which are currently being read, so we need to obtain
             // an exclusive write lock on blocks which are candidates for eviction. We perform a

@@ -154,9 +154,11 @@ private[spark] class DAGScheduler(
   private[scheduler] val shuffleIdToMapStage = new HashMap[Int, ShuffleMapStage]
   private[scheduler] val jobIdToActiveJob = new HashMap[Int, ActiveJob]
 
-  // Modification: Data Structure to store past reference count
-  // Map the RDDs to the children IDs
+  // Modification: Data Structure to store past reference count and distance
   private[scheduler] val rddIdToPastRef = new HashMap[Int, Int] {
+    override def default(key: Int): Int = 0
+  }
+  private[scheduler] val rddIdToLastAccessJobId = new HashMap[Int, Int] {
     override def default(key: Int): Int = 0
   }
   // End of Modification
@@ -745,7 +747,7 @@ private[spark] class DAGScheduler(
 
   /** Invoke `.partitions` on the given RDD and all of its ancestors  */
   // Modification: Repurposed this eager computation function to also Cache RDDs
-  private def preprocessRDD(rdd: RDD[_]): Unit = {
+  private def preprocessRDD(rdd: RDD[_], jobId: Int): Unit = {
     val startTime = System.nanoTime
     val visitedRdds = new HashSet[RDD[_]]
     // We are manually maintaining a stack here to prevent StackOverflowError
@@ -777,6 +779,9 @@ private[spark] class DAGScheduler(
           rddIdToPastRef.synchronized {
             rddIdToPastRef(dep.rdd.id) += 1
           }
+          rddIdToLastAccessJobId.synchronized {
+            rddIdToLastAccessJobId(dep.rdd.id) = jobId
+          }
         }
       }
     }
@@ -786,9 +791,11 @@ private[spark] class DAGScheduler(
     }
 
     // Take all RDDs which have more than 1 Reference Count + Past Reference in the current job
-    val cachedRDDs = rddIdToPastRef.filter({
-      case (k, v) => rddIdToRdd.contains(k) && (v > 1)
-    })
+    val cachedRDDs = rddIdToPastRef.synchronized {
+      rddIdToPastRef.filter({
+        case (k, v) => rddIdToRdd.contains(k) && (v > 1)
+      })
+    }
 
     logInfo("preprocessRDD for RDD %d took %f seconds"
       .format(rdd.id, (System.nanoTime - startTime) / 1e9))
@@ -808,6 +815,14 @@ private[spark] class DAGScheduler(
             // This RDD is not a part of this job, thus has already been cached
             // or can be cached in the future when computed instead.
         }
+    }
+
+    rddIdToPastRef.synchronized {
+      rddIdToLastAccessJobId.synchronized {
+        blockManagerMaster.broadcastReferenceData(rddIdToRefCount,
+                                                  rddIdToPastRef,
+                                                  rddIdToLastAccessJobId)
+      }
     }
   // Original:
   // private def eagerlyComputePartitionsForRddAndAncestors(rdd: RDD[_]): Unit = {
@@ -951,13 +966,15 @@ private[spark] class DAGScheduler(
     // SPARK-23626: `RDD.getPartitions()` can be slow, so we eagerly compute
     // `.partitions` on every RDD in the DAG to ensure that `getPartitions()`
     // is evaluated outside of the DAGScheduler's single-threaded event loop:
-    // Modification: Changed Function Signature
-    preprocessRDD(rdd)
+    // Modification: Changed Function Signature and moved job id computation above
+    val jobId = nextJobId.getAndIncrement()
+    preprocessRDD(rdd, jobId)
     // Original:
     // eagerlyComputePartitionsForRddAndAncestors(rdd)
+    //
+    // val jobId = nextJobId.getAndIncrement()
     // End of Modification
 
-    val jobId = nextJobId.getAndIncrement()
     if (partitions.isEmpty) {
       val clonedProperties = Utils.cloneProperties(properties)
       if (sc.getLocalProperty(SparkContext.SPARK_JOB_DESCRIPTION) == null) {
@@ -1051,7 +1068,7 @@ private[spark] class DAGScheduler(
     // `.partitions` on every RDD in the DAG to ensure that `getPartitions()`
     // is evaluated outside of the DAGScheduler's single-threaded event loop:
     // Modification: Changed Function Signature
-    preprocessRDD(rdd)
+    preprocessRDD(rdd, jobId)
     // Original:
     // eagerlyComputePartitionsForRddAndAncestors(rdd)
     // End of Modification
@@ -1092,7 +1109,7 @@ private[spark] class DAGScheduler(
     // `.partitions` on every RDD in the DAG to ensure that `getPartitions()`
     // is evaluated outside of the DAGScheduler's single-threaded event loop:
     // Modification: Changed Function Signature
-    preprocessRDD(rdd)
+    preprocessRDD(rdd, jobId)
     // Original:
     // eagerlyComputePartitionsForRddAndAncestors(rdd)
     // End of Modification

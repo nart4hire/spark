@@ -19,6 +19,9 @@ package org.apache.spark.storage
 
 import scala.collection.generic.CanBuildFrom
 import scala.collection.immutable.Iterable
+// Modification: Added Data Structure
+import scala.collection.mutable.HashMap
+// End of Modification
 import scala.concurrent.Future
 
 import org.apache.spark.{SparkConf, SparkException}
@@ -162,6 +165,14 @@ class BlockManagerMaster(
   def getExecutorEndpointRef(executorId: String): Option[RpcEndpointRef] = {
     driverEndpoint.askSync[Option[RpcEndpointRef]](GetExecutorEndpointRef(executorId))
   }
+
+  // Modification: Add RPC functions to propagate Reference Counts
+  def broadcastReferenceData(refCount: HashMap[Int, Int],
+                             pastRef: HashMap[Int, Int],
+                             distance: HashMap[Int, Int]): Unit = {
+    driverEndpoint.askSync[Unit](ReferenceData(refCount, pastRef, distance))
+  }
+  // End of Modification
 
   /**
    * Remove a block from the storage endpoints that have it. This can only be used to remove

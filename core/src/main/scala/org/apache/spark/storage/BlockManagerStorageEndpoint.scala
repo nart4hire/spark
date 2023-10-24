@@ -42,6 +42,11 @@ class BlockManagerStorageEndpoint(
 
   // Operations that involve removing blocks may be slow and should be done asynchronously
   override def receiveAndReply(context: RpcCallContext): PartialFunction[Any, Unit] = {
+    // Modification: Add RPC
+    case ReferenceData(refCount, pastRef, distance) =>
+      blockManager.memoryStore.updateReferenceData(refCount, pastRef, distance)
+    // End of Modification
+
     case RemoveBlock(blockId) =>
       doAsync[Boolean]("removing block " + blockId, context) {
         blockManager.removeBlock(blockId)
