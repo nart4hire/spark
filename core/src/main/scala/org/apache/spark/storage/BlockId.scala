@@ -40,6 +40,9 @@ sealed abstract class BlockId {
   //               Default weight of 0 meaning algorithm will prioritize eviction of non-RDD
   //               blocks.
   var weight: Double = 0.0
+  def setWeight(value: Double): Unit = {
+    weight = value
+  }
   // End of Modification
 
   // convenience methods

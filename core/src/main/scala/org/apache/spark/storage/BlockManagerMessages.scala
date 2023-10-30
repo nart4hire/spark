@@ -20,7 +20,7 @@ package org.apache.spark.storage
 import java.io.{Externalizable, ObjectInput, ObjectOutput}
 
 // Modification: Added HashMap Data Structure
-import scala.collection.mutable.HashMap
+import scala.collection.mutable.{HashMap, HashSet}
 
 import org.apache.spark.rpc.RpcEndpointRef
 import org.apache.spark.util.Utils
@@ -33,9 +33,11 @@ private[spark] object BlockManagerMessages {
   sealed trait ToBlockManagerMasterStorageEndpoint
 
   // Modification: Add RPC Messages
-  case class ReferenceData(refCount: HashMap[Int, Int],
-    pastRef: HashMap[Int, Int],
-    distance: HashMap[Int, Int]) extends ToBlockManagerMasterStorageEndpoint
+  case class ReferenceData(jobId: Int, refData: HashMap[Int, HashSet[Int]])
+    extends ToBlockManagerMasterStorageEndpoint
+
+  case class JobSuccess(jobId: Int)
+    extends ToBlockManagerMasterStorageEndpoint
   // End of Modification
 
   // Remove a block from the storage endpoints that have it. This can only be used to remove

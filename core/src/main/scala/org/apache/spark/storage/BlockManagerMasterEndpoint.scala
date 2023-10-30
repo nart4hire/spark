@@ -113,12 +113,18 @@ class BlockManagerMasterEndpoint(
     RpcUtils.makeDriverRef(CoarseGrainedSchedulerBackend.ENDPOINT_NAME, conf, rpcEnv)
 
   // Modification: Add broadcast to storage endpoint RPC
-  def broadcastReferenceData(refCount: mutable.HashMap[Int, Int],
-                             pastRef: mutable.HashMap[Int, Int],
-                             distance: mutable.HashMap[Int, Int]): Unit = {
+  def broadcastReferenceData(jobId: Int,
+                             refData: mutable.HashMap[Int, mutable.HashSet[Int]]): Unit = {
     val managers = blockManagerInfo.toList
     for (manager <- managers) {
-      manager._2.storageEndpoint.ask[Unit](ReferenceData(refCount, pastRef, distance))
+      manager._2.storageEndpoint.ask[Boolean](ReferenceData(jobId, refData))
+    }
+  }
+
+  def broadcastJobSuccess(jobId: Int): Unit = {
+    val managers = blockManagerInfo.toList
+    for (manager <- managers) {
+      manager._2.storageEndpoint.ask[Boolean](JobSuccess(jobId))
     }
   }
   // End of Modification
@@ -130,9 +136,13 @@ class BlockManagerMasterEndpoint(
         register(id, localDirs, maxOnHeapMemSize, maxOffHeapMemSize, endpoint, isReRegister))
 
     // Modification: Added RPC
-    case ReferenceData(refCount, pastRef, distance) =>
-      broadcastReferenceData(refCount, pastRef, distance)
-      context.reply(null)
+    case ReferenceData(jobId, refData) =>
+      broadcastReferenceData(jobId, refData)
+      context.reply(true)
+
+    case JobSuccess(jobId) =>
+      broadcastJobSuccess(jobId)
+      context.reply(true)
     // End of Modification
 
     case _updateBlockInfo @

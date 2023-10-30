@@ -110,5 +110,11 @@ spark-warehouse/
 .jvmopts
 .sbtopts
 
+# Dev
+.vscode/
+.bloop/
+.metals/
+metals.sbt
+
 # For Node.js
 node_modules

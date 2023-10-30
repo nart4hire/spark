@@ -154,13 +154,11 @@ private[spark] class DAGScheduler(
   private[scheduler] val shuffleIdToMapStage = new HashMap[Int, ShuffleMapStage]
   private[scheduler] val jobIdToActiveJob = new HashMap[Int, ActiveJob]
 
-  // Modification: Data Structure to store past reference count and distance
-  private[scheduler] val rddIdToPastRef = new HashMap[Int, Int] {
-    override def default(key: Int): Int = 0
+  // Modification: Data Structure to store lineage of all jobs and distance
+  private[scheduler] val allRddIdToChildrenId = new HashMap[Int, HashSet[Int]] {
+    override def default(key: Int): HashSet[Int] = HashSet.empty[Int]
   }
-  private[scheduler] val rddIdToLastAccessJobId = new HashMap[Int, Int] {
-    override def default(key: Int): Int = 0
-  }
+
   // End of Modification
 
   // Stages we need to run whose parents aren't done
@@ -745,11 +743,9 @@ private[spark] class DAGScheduler(
     missing.toList
   }
 
-  /** Invoke `.partitions` on the given RDD and all of its ancestors  */
-  // Modification: Repurposed this eager computation function to also Cache RDDs
+  // Modification: RDD Preprocessing and caching
   private def preprocessRDD(rdd: RDD[_], jobId: Int): Unit = {
     val startTime = System.nanoTime
-    val visitedRdds = new HashSet[RDD[_]]
     // We are manually maintaining a stack here to prevent StackOverflowError
     // caused by recursively visiting
     val waitingForVisit = new ListBuffer[RDD[_]]
@@ -758,31 +754,20 @@ private[spark] class DAGScheduler(
     // Map the RDD IDs to the RDDs, this is so that RDD references are cleaned
     // at the end of the function, but we can keep a complete lineage map by ID.
     val rddIdToRdd = new HashMap[Int, RDD[_]]
-    // Ref Count Analysis for current job only
-    val rddIdToRefCount = new HashMap[Int, Int] {
-      override def default(key: Int): Int = 0
-    }
+    // A Lineage HashMap, with the children as a hashset
+    val rddIdToChildrenId = new HashMap[Int, HashSet[Int]]
 
     def visit(rdd: RDD[_]): Unit = {
-      if (!visitedRdds(rdd)) {
-        visitedRdds += rdd
-        // Add RDD id to hashmap
-        rddIdToRdd(rdd.id) = rdd
-
-        // Eagerly compute:
-        rdd.partitions
-
-        for (dep <- rdd.dependencies) {
-          waitingForVisit.prepend(dep.rdd)
-          // Also add towards the reference counts
-          rddIdToRefCount(dep.rdd.id) += 1
-          rddIdToPastRef.synchronized {
-            rddIdToPastRef(dep.rdd.id) += 1
-          }
-          rddIdToLastAccessJobId.synchronized {
-            rddIdToLastAccessJobId(dep.rdd.id) = jobId
-          }
-        }
+      // Add current RDD to Mapping
+      rddIdToRdd.update(rdd.id, rdd)
+      for (dep <- rdd.dependencies) {
+        // Insert child into parent's children hashset
+        // The size of the hashset is the reference count,
+        // as a parent cannot have 2 of the same children.
+        // Thus, this will visit all the dependency RDDs
+        // and add them only once to the parent
+        rddIdToChildrenId.getOrElseUpdate(dep.rdd.id, new HashSet[Int]()) += rdd.id
+        waitingForVisit.prepend(dep.rdd)
       }
     }
 
@@ -790,11 +775,24 @@ private[spark] class DAGScheduler(
       visit(waitingForVisit.remove(0))
     }
 
-    // Take all RDDs which have more than 1 Reference Count + Past Reference in the current job
-    val cachedRDDs = rddIdToPastRef.synchronized {
-      rddIdToPastRef.filter({
-        case (k, v) => rddIdToRdd.contains(k) && (v > 1)
-      })
+
+    allRddIdToChildrenId.synchronized {
+      for (parent_relation <- rddIdToChildrenId) {
+        // Adds the current parent's children hashset to the past children hashset
+        allRddIdToChildrenId.getOrElseUpdate(parent_relation._1,
+                                             new HashSet[Int]()) ++= parent_relation._2
+      }
+    }
+
+    // Take all RDDs which have a pastRef larger than one and cache it,
+    // Only caches the ones in the current job
+    // Get or Else for the niche situation where job is single RDD
+    // Which means 0 ref count and consequently no past_ref info
+    // It is assumed no past_ref or ref_count means 0 references
+    val cachedRDDs = allRddIdToChildrenId.synchronized {
+      rddIdToRdd.filter {
+        case (id, _) => allRddIdToChildrenId.getOrElseUpdate(id, new HashSet[Int]()).size > 1
+      }
     }
 
     logInfo("preprocessRDD for RDD %d took %f seconds"
@@ -802,57 +800,45 @@ private[spark] class DAGScheduler(
     logInfo("Current Job RDDs (ID) to be Cached: " + cachedRDDs.keys.toString())
 
     // Cache RDDs
-    cachedRDDs.foreach{
-      case (parentId, _) =>
-        rddIdToRdd.get(parentId) match {
-          case Some(parent) =>
-            // Only change if it hasn't been persisted in any other form
-            if (parent.getStorageLevel == StorageLevel.NONE) {
-              parent.persist(StorageLevel.MEMORY_ONLY)
-            }
-          case None =>
-            logWarning(s"RDD[${parentId}] not part of current job.")
-            // This RDD is not a part of this job, thus has already been cached
-            // or can be cached in the future when computed instead.
+    cachedRDDs.foreach {
+      case (_, rddToCache) =>
+        if (rddToCache.getStorageLevel == StorageLevel.NONE) {
+          rddToCache.persist(StorageLevel.MEMORY_ONLY)
         }
     }
 
-    rddIdToPastRef.synchronized {
-      rddIdToLastAccessJobId.synchronized {
-        blockManagerMaster.broadcastReferenceData(rddIdToRefCount,
-                                                  rddIdToPastRef,
-                                                  rddIdToLastAccessJobId)
-      }
-    }
-  // Original:
-  // private def eagerlyComputePartitionsForRddAndAncestors(rdd: RDD[_]): Unit = {
-  //   val startTime = System.nanoTime
-  //   val visitedRdds = new HashSet[RDD[_]]
-  //   // We are manually maintaining a stack here to prevent StackOverflowError
-  //   // caused by recursively visiting
-  //   val waitingForVisit = new ListBuffer[RDD[_]]
-  //   waitingForVisit += rdd
-
-  //   def visit(rdd: RDD[_]): Unit = {
-  //     if (!visitedRdds(rdd)) {
-  //       visitedRdds += rdd
-
-  //       // Eagerly compute:
-  //       rdd.partitions
-
-  //       for (dep <- rdd.dependencies) {
-  //         waitingForVisit.prepend(dep.rdd)
-  //       }
-  //     }
-  //   }
-
-  //   while (waitingForVisit.nonEmpty) {
-  //     visit(waitingForVisit.remove(0))
-  //   }
-  //   logDebug("eagerlyComputePartitionsForRddAndAncestors for RDD %d took %f seconds"
-  //     .format(rdd.id, (System.nanoTime - startTime) / 1e9))
+    blockManagerMaster.broadcastReferenceData(jobId, rddIdToChildrenId)
   }
   // End of Modification
+
+  /** Invoke `.partitions` on the given RDD and all of its ancestors  */
+  private def eagerlyComputePartitionsForRddAndAncestors(rdd: RDD[_]): Unit = {
+    val startTime = System.nanoTime
+    val visitedRdds = new HashSet[RDD[_]]
+    // We are manually maintaining a stack here to prevent StackOverflowError
+    // caused by recursively visiting
+    val waitingForVisit = new ListBuffer[RDD[_]]
+    waitingForVisit += rdd
+
+    def visit(rdd: RDD[_]): Unit = {
+      if (!visitedRdds(rdd)) {
+        visitedRdds += rdd
+
+        // Eagerly compute:
+        rdd.partitions
+
+        for (dep <- rdd.dependencies) {
+          waitingForVisit.prepend(dep.rdd)
+        }
+      }
+    }
+
+    while (waitingForVisit.nonEmpty) {
+      visit(waitingForVisit.remove(0))
+    }
+    logDebug("eagerlyComputePartitionsForRddAndAncestors for RDD %d took %f seconds"
+      .format(rdd.id, (System.nanoTime - startTime) / 1e9))
+  }
 
   /**
    * Registers the given jobId among the jobs that need the given stage and
@@ -962,19 +948,15 @@ private[spark] class DAGScheduler(
         "Attempting to access a non-existent partition: " + p + ". " +
           "Total number of partitions: " + maxPartitions)
     }
-
     // SPARK-23626: `RDD.getPartitions()` can be slow, so we eagerly compute
     // `.partitions` on every RDD in the DAG to ensure that `getPartitions()`
     // is evaluated outside of the DAGScheduler's single-threaded event loop:
-    // Modification: Changed Function Signature and moved job id computation above
-    val jobId = nextJobId.getAndIncrement()
-    preprocessRDD(rdd, jobId)
-    // Original:
-    // eagerlyComputePartitionsForRddAndAncestors(rdd)
-    //
-    // val jobId = nextJobId.getAndIncrement()
-    // End of Modification
+    eagerlyComputePartitionsForRddAndAncestors(rdd)
 
+    val jobId = nextJobId.getAndIncrement()
+    // Modification: RDD preprocessing call
+    preprocessRDD(rdd, jobId)
+    // End of Modification
     if (partitions.isEmpty) {
       val clonedProperties = Utils.cloneProperties(properties)
       if (sc.getLocalProperty(SparkContext.SPARK_JOB_DESCRIPTION) == null) {
@@ -1024,6 +1006,9 @@ private[spark] class DAGScheduler(
     ThreadUtils.awaitReady(waiter.completionFuture, Duration.Inf)
     waiter.completionFuture.value.get match {
       case scala.util.Success(_) =>
+        // Modification: Notify Executors of Job Success
+        blockManagerMaster.broadcastJobSuccess(waiter.jobId)
+        // End of Modification
         logInfo("Job %d finished: %s, took %f s".format
           (waiter.jobId, callSite.shortForm, (System.nanoTime - start) / 1e9))
       case scala.util.Failure(exception) =>
@@ -1067,10 +1052,9 @@ private[spark] class DAGScheduler(
     // SPARK-23626: `RDD.getPartitions()` can be slow, so we eagerly compute
     // `.partitions` on every RDD in the DAG to ensure that `getPartitions()`
     // is evaluated outside of the DAGScheduler's single-threaded event loop:
-    // Modification: Changed Function Signature
+    eagerlyComputePartitionsForRddAndAncestors(rdd)
+    // Modification: Call Preprocessing
     preprocessRDD(rdd, jobId)
-    // Original:
-    // eagerlyComputePartitionsForRddAndAncestors(rdd)
     // End of Modification
 
     val listener = new ApproximateActionListener(rdd, func, evaluator, timeout)
@@ -1108,10 +1092,9 @@ private[spark] class DAGScheduler(
     // SPARK-23626: `RDD.getPartitions()` can be slow, so we eagerly compute
     // `.partitions` on every RDD in the DAG to ensure that `getPartitions()`
     // is evaluated outside of the DAGScheduler's single-threaded event loop:
-    // Modification: Changed Function Signature
+    eagerlyComputePartitionsForRddAndAncestors(rdd)
+    // Modification: Call preprocessing
     preprocessRDD(rdd, jobId)
-    // Original:
-    // eagerlyComputePartitionsForRddAndAncestors(rdd)
     // End of Modification
 
     // We create a JobWaiter with only one "task", which will be marked as complete when the whole

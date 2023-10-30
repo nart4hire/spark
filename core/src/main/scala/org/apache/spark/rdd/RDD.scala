@@ -370,7 +370,10 @@ abstract class RDD[T: ClassTag](
     if (isCheckpointedAndMaterialized) {
       firstParent[T].iterator(split, context)
     } else {
-      compute(split, context)
+      tBegan = System.currentTimeMillis()
+      val result = compute(split, context)
+      tEnded = System.currentTimeMillis()
+      result
     }
   }
 
@@ -1806,6 +1809,11 @@ abstract class RDD[T: ClassTag](
 
   /** User code that created this RDD (e.g. `textFile`, `parallelize`). */
   @transient private[spark] val creationSite = sc.getCallSite()
+
+  // Modification: Added Timestamping, called only on executor on compute
+  var tBegan: Long = 0
+  var tEnded: Long = 0
+  // End of Modification
 
   /**
    * The scope associated with the operation that created this RDD.

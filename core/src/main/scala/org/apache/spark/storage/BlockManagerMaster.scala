@@ -20,7 +20,7 @@ package org.apache.spark.storage
 import scala.collection.generic.CanBuildFrom
 import scala.collection.immutable.Iterable
 // Modification: Added Data Structure
-import scala.collection.mutable.HashMap
+import scala.collection.mutable.{HashMap, HashSet}
 // End of Modification
 import scala.concurrent.Future
 
@@ -167,10 +167,12 @@ class BlockManagerMaster(
   }
 
   // Modification: Add RPC functions to propagate Reference Counts
-  def broadcastReferenceData(refCount: HashMap[Int, Int],
-                             pastRef: HashMap[Int, Int],
-                             distance: HashMap[Int, Int]): Unit = {
-    driverEndpoint.askSync[Unit](ReferenceData(refCount, pastRef, distance))
+  def broadcastReferenceData(jobId: Int, refData: HashMap[Int, HashSet[Int]]): Unit = {
+    driverEndpoint.askSync[Boolean](ReferenceData(jobId, refData))
+  }
+
+  def broadcastJobSuccess(jobId: Int): Unit = {
+    driverEndpoint.askSync[Boolean](JobSuccess(jobId))
   }
   // End of Modification
 

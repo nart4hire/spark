@@ -22,6 +22,9 @@ import java.lang.management.ManagementFactory
 import java.nio.ByteBuffer
 import java.util.Properties
 
+// Modification: Import Necessary Data Structures
+import scala.collection.mutable.{HashMap, ListBuffer}
+
 import org.apache.spark._
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
@@ -72,7 +75,39 @@ private[spark] class ResultTask[T, U](
     if (locs == null) Nil else locs.distinct
   }
 
-  // Modification: Change function signature to accomodate RDD_id
+  // Modification: Added Compute Time Map per RDD
+  def getComputeTimeMap(finalRdd: RDD[_]): HashMap[Int, Long] = {
+    val result = new HashMap[Int, Long]()
+    val waitingForVisit = new ListBuffer[RDD[_]]
+    waitingForVisit += finalRdd
+    def visit(rdd: RDD[_]): Unit = {
+      for (dep <- rdd.dependencies) {
+        if (dep.rdd != null) {
+          waitingForVisit.prepend(dep.rdd)
+        }
+      }
+
+      if (rdd.tBegan != -1 && rdd.tEnded != -1) {
+        val tTotal = rdd.tEnded - rdd.tBegan
+        if (!result.contains(rdd.id)) {
+          result.put(rdd.id, math.max(0, tTotal))
+        }
+        else if (tTotal > 0) {
+          result.put(rdd.id, tTotal)
+        }
+      }
+      else if (!result.contains(rdd.id)) {
+        result.put(rdd.id, 0)
+      }
+    }
+    while (!waitingForVisit.isEmpty) {
+      visit(waitingForVisit.remove(0))
+    }
+    result
+  }
+  // End of Modification
+
+  // Modification: Change function signature to accomodate RDD_id, Added Computation time data
   override def runTask(context: TaskContext): (U, Int) = {
   // End of Modification
     // Deserialize the RDD and the func using the broadcast variables.
@@ -89,8 +124,11 @@ private[spark] class ResultTask[T, U](
       threadMXBean.getCurrentThreadCpuTime - deserializeStartCpuTime
     } else 0L
 
-    // Modification: Returns RDD_id
-    (func(context, rdd.iterator(partition, context)), rdd.id)
+    // Modification: Returns RDD_id, also added time measurement to send to the memorystore
+    val result = func(context, rdd.iterator(partition, context))
+    val computeTimeMap = getComputeTimeMap(rdd)
+    SparkEnv.get.blockManager.memoryStore.updateCostData(partition.index, computeTimeMap)
+    (result, rdd.id)
     // End of Modification
   }
 
