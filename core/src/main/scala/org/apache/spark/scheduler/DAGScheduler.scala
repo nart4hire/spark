@@ -903,6 +903,36 @@ private[spark] class DAGScheduler(
     waiter
   }
 
+  // Modification: Get per RDD reference count
+  private def getReferenceCount(rdd: RDD[_]): Unit = {
+    // We are manually maintaining a stack here to prevent StackOverflowError
+    // caused by recursively visiting
+    val waitingForVisit = new ListBuffer[RDD[_]]
+    waitingForVisit += rdd
+
+    // A Lineage HashMap, with the children as a hashset
+    val rddIdToChildrenId = new HashMap[Int, HashSet[Int]]
+
+    def visit(rdd: RDD[_]): Unit = {
+      for (dep <- rdd.dependencies) {
+        // Insert child into parent's children hashset
+        // The size of the hashset is the reference count,
+        // as a parent cannot have 2 of the same children.
+        // Thus, this will visit all the dependency RDDs
+        // and add them only once to the parent
+        rddIdToChildrenId.getOrElseUpdate(dep.rdd.id, new HashSet[Int]()) += rdd.id
+        waitingForVisit.prepend(dep.rdd)
+      }
+    }
+
+    while (waitingForVisit.nonEmpty) {
+      visit(waitingForVisit.remove(0))
+    }
+
+    blockManagerMaster.broadcastReferenceData(rddIdToChildrenId)
+  }
+  // End of Modification
+
   /**
    * Run an action job on the given RDD and pass all the results to the resultHandler function as
    * they arrive.
@@ -924,6 +954,7 @@ private[spark] class DAGScheduler(
       callSite: CallSite,
       resultHandler: (Int, U) => Unit,
       properties: Properties): Unit = {
+    getReferenceCount(rdd)
     val start = System.nanoTime
     val waiter = submitJob(rdd, func, partitions, callSite, resultHandler, properties)
     ThreadUtils.awaitReady(waiter.completionFuture, Duration.Inf)

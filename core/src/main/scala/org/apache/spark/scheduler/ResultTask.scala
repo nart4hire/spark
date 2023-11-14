@@ -89,8 +89,14 @@ private[spark] class ResultTask[T, U](
       threadMXBean.getCurrentThreadCpuTime - deserializeStartCpuTime
     } else 0L
 
-    // Modification: Returns RDD_id
-    (func(context, rdd.iterator(partition, context)), rdd.id)
+    // Modification: Returns RDD_id and Updates Reference Count
+    val result = func(context, rdd.iterator(partition, context))
+    for (d <- rdd.dependencies) {
+      if (d.rdd != null) {
+        SparkEnv.get.blockManager.memoryStore.decrementReferenceCount(d.rdd.id, partition.index)
+      }
+    }
+    (result, rdd.id)
     // End of Modification
   }
 

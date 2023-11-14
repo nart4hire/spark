@@ -98,8 +98,14 @@ private[spark] class ShuffleMapTask(
     val mapId = if (SparkEnv.get.conf.get(config.SHUFFLE_USE_OLD_FETCH_PROTOCOL)) {
       partitionId
     } else context.taskAttemptId()
-    // Modification: Returns RDD_id
-    (dep.shuffleWriterProcessor.write(rdd, dep, mapId, context, partition), rdd.id)
+    // Modification: Returns RDD_id and Updates Reference Count
+    val result = dep.shuffleWriterProcessor.write(rdd, dep, mapId, context, partition)
+    for (d <- rdd.dependencies) {
+      if (d.rdd != null) {
+        SparkEnv.get.blockManager.memoryStore.decrementReferenceCount(d.rdd.id, partition.index)
+      }
+    }
+    (result, rdd.id)
     // End of Modification
   }
 
