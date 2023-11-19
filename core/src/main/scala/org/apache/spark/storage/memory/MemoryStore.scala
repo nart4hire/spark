@@ -209,8 +209,7 @@ def updateCostData(partition: Int, costMap: mutable.HashMap[Int, Long]): Unit = 
                 8.0, // Maximum value: (if scaledSize > 8, set to 8)
                 math.max(
                   1.0, // Minimum value: (if scaledSize < 1, set to 1)
-                  // log base 16 of size, then add 3.5
-                  (scaleByLog(16.0, size.toDouble) + 3.5)))
+                  (scaleByLog(16.0, size.toDouble / 1024) + 1.0)))
           }
           val computeTime = costData.synchronized {
             costData.getOrElse(rddSignature, 0L)
@@ -223,8 +222,7 @@ def updateCostData(partition: Int, costMap: mutable.HashMap[Int, Long]): Unit = 
                 8.0, // Maximum value: (if scaledComputeTime > 8, set to 8)
                 math.max(
                   1.0, // Minimum value: (if scaledComputeTime < 1, set to 1)
-                  // log base 10 of size, then add 4.0
-                  (math.log10(computeTime.toDouble) + 4.0)))
+                  (math.log10(computeTime.toDouble) + 1.0)))
           }
           val thisRefCount = refData.synchronized {
             refData.getOrElseUpdate(rddSignature._1, new mutable.HashSet[Int]()).size.toDouble
