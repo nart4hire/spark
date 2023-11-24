@@ -98,8 +98,10 @@ private[spark] class ShuffleMapTask(
     val mapId = if (SparkEnv.get.conf.get(config.SHUFFLE_USE_OLD_FETCH_PROTOCOL)) {
       partitionId
     } else context.taskAttemptId()
-    // Modification: Returns RDD_id
-    (dep.shuffleWriterProcessor.write(rdd, dep, mapId, context, partition), rdd.id)
+    // Modification: Returns RDD_id and Updates Reference Distance
+    val result = dep.shuffleWriterProcessor.write(rdd, dep, mapId, context, partition)
+    SparkEnv.get.blockManager.memoryStore.updateReferenceDistance(stageId)
+    (result, rdd.id)
     // End of Modification
   }
 

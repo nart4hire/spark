@@ -89,8 +89,10 @@ private[spark] class ResultTask[T, U](
       threadMXBean.getCurrentThreadCpuTime - deserializeStartCpuTime
     } else 0L
 
-    // Modification: Returns RDD_id
-    (func(context, rdd.iterator(partition, context)), rdd.id)
+    // Modification: Returns RDD_id and Updates Reference Distance
+    val result = func(context, rdd.iterator(partition, context))
+    SparkEnv.get.blockManager.memoryStore.updateReferenceDistance(stageId)
+    (result, rdd.id)
     // End of Modification
   }
 

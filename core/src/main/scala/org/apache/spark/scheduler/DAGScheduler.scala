@@ -903,6 +903,82 @@ private[spark] class DAGScheduler(
     waiter
   }
 
+  // Modification: Get per RDD reference stages
+  // A Lineage HashMap, with the children as a hashset
+  val rddIdToChildrenId = new HashMap[Int, HashSet[Int]]
+
+  private def updateLineage(rdd: RDD[_]): Unit = {
+    // We are manually maintaining a stack here to prevent StackOverflowError
+    // caused by recursively visiting
+    val waitingForVisit = new ListBuffer[RDD[_]]
+    waitingForVisit += rdd
+
+    def visit(rdd: RDD[_]): Unit = {
+      for (dep <- rdd.dependencies) {
+        // Insert child into parent's children hashset
+        // The size of the hashset is the reference count,
+        // as a parent cannot have 2 of the same children.
+        // Thus, this will visit all the dependency RDDs
+        // and add them only once to the parent
+        rddIdToChildrenId.getOrElseUpdate(dep.rdd.id, new HashSet[Int]()) += rdd.id
+        waitingForVisit.prepend(dep.rdd)
+      }
+    }
+
+    while (waitingForVisit.nonEmpty) {
+      visit(waitingForVisit.remove(0))
+    }
+  }
+
+  private val rddIdToStageId = new HashMap[Int, Int]
+
+  private def updateRddIdToStageId(stage: Stage): Unit = {
+    val visited = new HashSet[RDD[_]]
+    val waitingForVisit = new ListBuffer[RDD[_]]
+    waitingForVisit += stage.rdd
+    while (waitingForVisit.nonEmpty) {
+      val toVisit = waitingForVisit.remove(0)
+      if (!visited(toVisit)) {
+        visited += toVisit
+        toVisit.dependencies.foreach {
+          case _: ShuffleDependency[_, _, _] =>
+            // Not within the same stage with current rdd, do nothing.
+          case dependency =>
+            rddIdToStageId.put(toVisit.id, stage.id)
+            waitingForVisit.prepend(dependency.rdd)
+        }
+      }
+    }
+  }
+
+  private def getReferenceDistance(finalRdd: RDD[_], finalStage: Stage): Unit = {
+    // Done before Job is started
+    updateLineage(finalRdd)
+    val visited = new HashSet[Stage]
+    val waitingForVisit = new ListBuffer[Stage]
+    waitingForVisit += finalStage
+    while(waitingForVisit.nonEmpty) {
+      val toVisit = waitingForVisit.remove(0)
+      if (!visited(toVisit)) {
+        updateRddIdToStageId(toVisit)
+        visited += toVisit
+        toVisit.parents.foreach(stage => waitingForVisit.prepend(stage))
+      }
+    }
+    val referenceDistance = new HashMap[Int, HashSet[Int]]
+    rddIdToChildrenId.foreach {
+      case (rddId, childSet) =>
+        childSet.foreach {
+          case childId: Int =>
+            referenceDistance.getOrElseUpdate(rddId, new HashSet[Int]) +=
+              rddIdToStageId.getOrElse(childId, -1)
+        }
+    }
+    logInfo(referenceDistance.toString())
+    blockManagerMaster.broadcastReferenceDistance(referenceDistance)
+  }
+  // End of Modification
+
   /**
    * Run an action job on the given RDD and pass all the results to the resultHandler function as
    * they arrive.
@@ -1237,6 +1313,9 @@ private[spark] class DAGScheduler(
     jobIdToActiveJob(jobId) = job
     activeJobs += job
     finalStage.setActiveJob(job)
+    // Modification: Send Reference Distance
+    getReferenceDistance(finalRDD, finalStage)
+    // End of Modification
     val stageIds = jobIdToStageIds(jobId).toArray
     val stageInfos = stageIds.flatMap(id => stageIdToStage.get(id).map(_.latestInfo))
     listenerBus.post(

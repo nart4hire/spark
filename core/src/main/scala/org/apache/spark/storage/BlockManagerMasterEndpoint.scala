@@ -23,6 +23,7 @@ import java.util.concurrent.TimeUnit
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
+import scala.collection.mutable.{HashMap, HashSet}
 import scala.concurrent.{ExecutionContext, Future, TimeoutException}
 import scala.util.Random
 import scala.util.control.NonFatal
@@ -180,6 +181,12 @@ class BlockManagerMasterEndpoint(
 
     case RemoveBroadcast(broadcastId, removeFromDriver) =>
       context.reply(removeBroadcast(broadcastId, removeFromDriver))
+
+    // Modification: Recieve Reference Count RPC
+    case ReferenceDistance(refDist) =>
+      broadcastReferenceDistance(refDist)
+      context.reply(true)
+      // End of Modification
 
     case RemoveBlock(blockId) =>
       removeBlockFromWorkers(blockId)
@@ -427,6 +434,14 @@ class BlockManagerMasterEndpoint(
         Seq.empty[ReplicateBlock]
     }
   }
+
+  // Modification: add RPC broadcast for reference data
+  private def broadcastReferenceDistance(refDist: HashMap[Int, HashSet[Int]]): Unit = {
+    for (blockManager <- blockManagerInfo.values) {
+      blockManager.storageEndpoint.ask[Boolean](ReferenceDistance(refDist))
+    }
+  }
+  // End of Modification
 
   // Remove a block from the workers that have it. This can only be used to remove
   // blocks that the master knows about.

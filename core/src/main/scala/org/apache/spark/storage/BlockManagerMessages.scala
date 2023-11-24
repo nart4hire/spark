@@ -19,6 +19,8 @@ package org.apache.spark.storage
 
 import java.io.{Externalizable, ObjectInput, ObjectOutput}
 
+import scala.collection.mutable.{HashMap, HashSet}
+
 import org.apache.spark.rpc.RpcEndpointRef
 import org.apache.spark.util.Utils
 
@@ -27,6 +29,11 @@ private[spark] object BlockManagerMessages {
   // Messages from the master to storage endpoints.
   //////////////////////////////////////////////////////////////////////////////////
   sealed trait ToBlockManagerMasterStorageEndpoint
+
+  // Modification: add RPC for reference count
+  case class ReferenceDistance(refDist: HashMap[Int, HashSet[Int]])
+    extends ToBlockManagerMasterStorageEndpoint
+  // End of Modification
 
   // Remove a block from the storage endpoints that have it. This can only be used to remove
   // blocks that the master knows about.

@@ -19,6 +19,7 @@ package org.apache.spark.storage
 
 import scala.collection.generic.CanBuildFrom
 import scala.collection.immutable.Iterable
+import scala.collection.mutable.{HashMap, HashSet}
 import scala.concurrent.Future
 
 import org.apache.spark.{SparkConf, SparkException}
@@ -162,6 +163,12 @@ class BlockManagerMaster(
   def getExecutorEndpointRef(executorId: String): Option[RpcEndpointRef] = {
     driverEndpoint.askSync[Option[RpcEndpointRef]](GetExecutorEndpointRef(executorId))
   }
+
+  // Modification: add broadcast for reference data
+  def broadcastReferenceDistance(refDist: HashMap[Int, HashSet[Int]]): Unit = {
+    driverEndpoint.askSync[Boolean](ReferenceDistance(refDist))
+  }
+  // End of Modification
 
   /**
    * Remove a block from the storage endpoints that have it. This can only be used to remove
