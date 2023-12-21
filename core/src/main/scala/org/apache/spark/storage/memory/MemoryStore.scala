@@ -74,6 +74,10 @@ private[storage] trait BlockEvictionHandler {
   private[storage] def dropFromMemory[T: ClassTag](
       blockId: BlockId,
       data: () => Either[Array[T], ChunkedByteBuffer]): StorageLevel
+
+  // Modification: add prefetch
+  private[storage] def prefetch(rddId: Int): Boolean
+  // End of Modification
 }
 
 /**
@@ -94,11 +98,12 @@ private[spark] class MemoryStore(
   private val entries = new LinkedHashMap[BlockId, MemoryEntry[_]](32, 0.75f, true)
 
   // Modification: added Reference Distance and BlockId refDist
+  private val threshold: Double = 0.25
   private var referenceDistance = new mutable.HashMap[Int, mutable.HashSet[Int]]()
   private var currentStageId: Int = 0
   private val blockIdToRD = new mutable.HashMap[BlockId, Int]()
 
-  def updateAndAddBlockId(blockId: BlockId): Unit = blockIdToRD.synchronized {
+  private def updateAndAddBlockId(blockId: BlockId): Unit = blockIdToRD.synchronized {
     val rddId = getRddId(blockId)
     rddId match {
       case Some(id) =>
@@ -166,6 +171,7 @@ private[spark] class MemoryStore(
   def updateReferenceDistanceMap(
     refDist: mutable.HashMap[Int, mutable.HashSet[Int]]): Unit = referenceDistance.synchronized {
     referenceDistance = refDist.clone()
+    logInfo("RD: " + referenceDistance.toString())
     blockIdToRD.synchronized {
       currentStageId.synchronized {
         for (blockId <- blockIdToRD.keys.iterator) {
@@ -188,20 +194,40 @@ private[spark] class MemoryStore(
               // Not an RDD
           }
         }
+
+        if (currentStageId > 0) {
+          // Eagerly evict blocks before the next job starts
+          val _ = evictBlocksEagerly()
+
+          // If memory is below the threshold, perform prefetching
+          val limit = (maxMemory.toDouble * threshold).toLong
+          if (memoryUsed < limit) {
+            val prefetchQueue = referenceDistance
+              .toList
+              .sortBy(
+                tuple =>
+                  tuple._2.filter(_ >= currentStageId).min(Ordering[Int]) - currentStageId
+              )
+            logInfo("Current Stage: " + currentStageId.toString())
+            logInfo("Prefetching: " + prefetchQueue.toString())
+            val iter = prefetchQueue.toIterator
+            var break = false
+            while (!break && iter.hasNext && memoryUsed < limit) {
+              val rddId = iter.next()._1
+              if (!blockEvictionHandler.prefetch(rddId)) {
+                break = true
+              }
+            }
+          }
+        }
       }
-      // Eagerly evict blocks before the next job starts
-      val _ = evictBlocksEagerly(MemoryMode.ON_HEAP)
     }
   }
 
   // Eager Eviction
-  private def evictBlocksEagerly(
-      memoryMode: MemoryMode): Long = memoryManager.synchronized {
+  private def evictBlocksEagerly(): Long = memoryManager.synchronized {
     var freedMemory = 0L
     val selectedBlocks = new ArrayBuffer[BlockId]
-    def blockIsEvictable(blockId: BlockId, entry: MemoryEntry[_]): Boolean = {
-      entry.memoryMode == memoryMode
-    }
     // This is synchronized to ensure that the set of entries is not changed
     // (because of getValue or getBytes) while traversing the iterator, as that
     // can lead to exceptions.
@@ -214,16 +240,9 @@ private[spark] class MemoryStore(
           if (pair._2 < 0) {
             val blockId = pair._1
             val entry = entries.get(blockId)
-            // val blockId = pair.getKey
-            // val entry = pair.getValue
-            if (blockIsEvictable(blockId, entry)) {
-              // We don't want to evict blocks which are currently being read, so we need to obtain
-              // an exclusive write lock on blocks which are candidates for eviction. We perform a
-              // non-blocking "tryLock" here in order to ignore blocks which are locked for reading:
-              if (blockInfoManager.lockForWriting(blockId, blocking = false).isDefined) {
-                selectedBlocks += blockId
-                freedMemory += entry.size
-              }
+            if (blockInfoManager.lockForWriting(blockId, blocking = false).isDefined) {
+              selectedBlocks += blockId
+              freedMemory += entry.size
             }
           } else {
             break = true

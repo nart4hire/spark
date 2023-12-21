@@ -913,6 +913,127 @@ private[spark] class BlockManager(
     throw new SparkException(s"Block $blockId was not found even though it's read-locked")
   }
 
+  // Modification: Add a prefetching scheme
+  private def prefetchBytes(
+      blockInfo: BlockInfo,
+      blockId: BlockId,
+      level: StorageLevel,
+      diskData: BlockData): Boolean = {
+    require(!level.deserialized)
+    if (level.useMemory) {
+      // Synchronize on blockInfo to guard against a race condition where two readers both try to
+      // put values read from disk into the MemoryStore.
+      blockInfo.synchronized {
+        if (memoryStore.contains(blockId)) {
+          diskData.dispose()
+          true
+        } else {
+          val allocator = level.memoryMode match {
+            case MemoryMode.ON_HEAP => ByteBuffer.allocate _
+            case MemoryMode.OFF_HEAP => Platform.allocateDirectBuffer _
+          }
+          val putSucceeded = memoryStore.putBytes(blockId, diskData.size, level.memoryMode, () => {
+            // https://issues.apache.org/jira/browse/SPARK-6076
+            // If the file size is bigger than the free memory, OOM will happen. So if we
+            // cannot put it into MemoryStore, copyForMemory should not be created. That's why
+            // this action is put into a `() => ChunkedByteBuffer` and created lazily.
+            diskData.toChunkedByteBuffer(allocator)
+          })
+          if (putSucceeded) {
+            diskData.dispose()
+            true
+          } else {
+            false
+          }
+        }
+      }
+    } else {
+      false
+    }
+  }
+
+  private def prefetchValues[T](
+      blockInfo: BlockInfo,
+      blockId: BlockId,
+      level: StorageLevel,
+      diskIterator: Iterator[T]): Boolean = {
+    require(level.deserialized)
+    val classTag = blockInfo.classTag.asInstanceOf[ClassTag[T]]
+    if (level.useMemory) {
+      // Synchronize on blockInfo to guard against a race condition where two readers both try to
+      // put values read from disk into the MemoryStore.
+      blockInfo.synchronized {
+        if (memoryStore.contains(blockId)) {
+          // Note: if we had a means to discard the disk iterator, we would do that here.
+          true
+        } else {
+          memoryStore.putIteratorAsValues(blockId, diskIterator, level.memoryMode, classTag) match {
+            case Left(iter) =>
+              // The memory store put() failed, so it returned the iterator back to us:
+              false
+            case Right(_) =>
+              // The put() succeeded, so we can read the values back:
+              true
+          }
+        }
+      }
+    } else {
+      false
+    }
+  }
+
+  private def prefetchFromDiskStore(blockId: BlockId): Boolean = {
+    blockInfoManager.lockForReading(blockId) match {
+      case None =>
+        logDebug(s"Block $blockId was not found")
+        false
+      case Some(info) =>
+        val level = info.level
+        val taskContext = Option(TaskContext.get())
+        if (level.useMemory && memoryStore.contains(blockId)) {
+          true
+        } else if (level.useDisk && diskStore.contains(blockId)) {
+          val diskData = diskStore.getBytes(blockId)
+          var success = false
+          if (level.deserialized) {
+            val diskValues = serializerManager.dataDeserializeStream(
+              blockId,
+              diskData.toInputStream())(info.classTag)
+            success = prefetchValues(info, blockId, level, diskValues)
+          } else {
+            success = prefetchBytes(info, blockId, level, diskData)
+          }
+          releaseLockAndDispose(blockId, diskData, taskContext)
+          success
+        } else {
+          handleLocalReadFailure(blockId)
+          false
+        }
+    }
+  }
+
+  private[storage] override def prefetch(rddId: Int): Boolean = {
+    var success: Boolean = true
+    val blocksToPrefetch = blockInfoManager.entries.flatMap(_._1.asRDDId).filter(
+      blockId =>
+        blockId.rddId == rddId &&
+        !memoryStore.contains(blockId) &&
+        diskStore.contains(blockId)
+    )
+    if (!blocksToPrefetch.isEmpty) {
+      blocksToPrefetch.foreach {
+        blockId =>
+          if (!prefetchFromDiskStore(blockId)) {
+            success = false
+          }
+      }
+    } else {
+      success = false
+    }
+    success
+  }
+  // End of Modification
+
   /**
    * Get block from local block manager as an iterator of Java objects.
    */
