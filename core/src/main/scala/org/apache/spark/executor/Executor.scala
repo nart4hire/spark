@@ -523,11 +523,11 @@ private[spark] class Executor(
             plugins = plugins)
           threwException = false
           // Modification: Increment counter of hashmap and mark as recomputed if more than 1
-          rddSignature = s"${rdd_id}_${task.partitionId}"
-          rddSignatureToComputationCount(rddSignature) += 1
-          if (rddSignatureToComputationCount(rddSignature) > 1) {
-            recomputed = true
-          }
+          // rddSignature = s"${rdd_id}_${task.partitionId}"
+          // rddSignatureToComputationCount(rddSignature) += 1
+          // if (rddSignatureToComputationCount(rddSignature) > 1) {
+          //   recomputed = true
+          // }
           // End of Modification
           res
         } {
@@ -665,9 +665,9 @@ private[spark] class Executor(
         plugins.foreach(_.onTaskSucceeded())
         execBackend.statusUpdate(taskId, TaskState.FINISHED, serializedResult)
         // Modification: Send RPC to the Scheduler, its since its easier to parse in driver log
-        if (recomputed) {
-          execBackend.recomputeAlert(rddSignature, task.metrics.executorCpuTime)
-        }
+        // if (recomputed) {
+        //   execBackend.recomputeAlert(rddSignature, task.metrics.executorCpuTime)
+        // }
         // End of Modification
       } catch {
         case t: TaskKilledException =>

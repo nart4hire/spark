@@ -789,25 +789,26 @@ private[spark] class DAGScheduler(
     // Get or Else for the niche situation where job is single RDD
     // Which means 0 ref count and consequently no past_ref info
     // It is assumed no past_ref or ref_count means 0 references
-    val cachedRDDs = allRddIdToChildrenId.synchronized {
-      rddIdToRdd.filter {
-        case (id, _) => allRddIdToChildrenId.getOrElseUpdate(id, new HashSet[Int]()).size > 1
-      }
-    }
+    // val cachedRDDs = allRddIdToChildrenId.synchronized {
+    //   rddIdToRdd.filter {
+    //     case (id, _) => allRddIdToChildrenId.getOrElseUpdate(id, new HashSet[Int]()).size > 1
+    //   }
+    // }
 
-    logInfo("preprocessRDD for RDD %d took %f seconds"
-      .format(rdd.id, (System.nanoTime - startTime) / 1e9))
-    logInfo("Current Job RDDs (ID) to be Cached: " + cachedRDDs.keys.toString())
+    // logInfo("preprocessRDD for RDD %d took %f seconds"
+    //   .format(rdd.id, (System.nanoTime - startTime) / 1e9))
+    // logInfo("Current Job RDDs (ID) to be Cached: " + cachedRDDs.keys.toString())
 
-    // Cache RDDs
-    cachedRDDs.foreach {
-      case (_, rddToCache) =>
-        if (rddToCache.getStorageLevel == StorageLevel.NONE) {
-          rddToCache.persist(StorageLevel.MEMORY_ONLY)
-        }
-    }
+    // // Cache RDDs
+    // cachedRDDs.foreach {
+    //   case (_, rddToCache) =>
+    //     if (rddToCache.getStorageLevel == StorageLevel.NONE) {
+    //       rddToCache.persist(StorageLevel.MEMORY_ONLY)
+    //     }
+    // }
 
     blockManagerMaster.broadcastReferenceData(jobId, rddIdToChildrenId)
+    logInfo("Lineage: " + allRddIdToChildrenId.toString)
   }
   // End of Modification
 
