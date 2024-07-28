@@ -293,7 +293,7 @@ def updateCostData(partition: Int, costMap: mutable.HashMap[Int, Long]): Unit = 
       val entry = new SerializedMemoryEntry[T](bytes, memoryMode, implicitly[ClassTag[T]])
       entries.synchronized {
         entries.put(blockId, entry)
-        logInfo("Cached RDD <- " + getRddId(blockId))
+        logInfo("Cached RDD <- " + blockId.toString)
       }
       // Modification: Add Block to name map, for ease of updating
       // We only want RDD blocks
@@ -409,7 +409,7 @@ def updateCostData(partition: Int, costMap: mutable.HashMap[Int, Long]): Unit = 
 
         entries.synchronized {
           entries.put(blockId, entry)
-          logInfo("Cached RDD <- " + getRddId(blockId))
+          logInfo("Cached RDD <- " + blockId.toString)
         }
         // Modification: Add Block to name map, for ease of updating
         // We only want RDD blocks
@@ -665,7 +665,7 @@ def updateCostData(partition: Int, costMap: mutable.HashMap[Int, Long]): Unit = 
         }
         val newEffectiveStorageLevel =
           blockEvictionHandler.dropFromMemory(blockId, () => data)(entry.classTag)
-        logInfo("Dropped RDD -> " + getRddId(blockId) + " -> " + rddToAdd)
+        logInfo("Dropped RDD -> " + blockId.toString + " -> " + rddToAdd)
         if (newEffectiveStorageLevel.isValid) {
           // The block is still present in at least one store, so release the lock
           // but don't delete the block info
