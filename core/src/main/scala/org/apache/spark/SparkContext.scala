@@ -1919,9 +1919,9 @@ class SparkContext(config: SparkConf) extends Logging {
    * Unpersist an RDD from memory and/or disk storage
    */
   private[spark] def unpersistRDD(rddId: Int, blocking: Boolean): Unit = {
-    env.blockManager.master.removeRdd(rddId, blocking)
-    persistentRdds.remove(rddId)
-    listenerBus.post(SparkListenerUnpersistRDD(rddId))
+    // env.blockManager.master.removeRdd(rddId, blocking)
+    // persistentRdds.remove(rddId)
+    // listenerBus.post(SparkListenerUnpersistRDD(rddId))
   }
 
   /**

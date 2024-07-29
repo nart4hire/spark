@@ -665,7 +665,7 @@ def updateCostData(partition: Int, costMap: mutable.HashMap[Int, Long]): Unit = 
         }
         val newEffectiveStorageLevel =
           blockEvictionHandler.dropFromMemory(blockId, () => data)(entry.classTag)
-        logInfo("Dropped RDD -> " + blockId.toString + " -> " + rddToAdd)
+        logInfo("Dropped RDD -> " + blockId.toString + " -> " + rddToAdd.getOrElse("Other"))
         if (newEffectiveStorageLevel.isValid) {
           // The block is still present in at least one store, so release the lock
           // but don't delete the block info
